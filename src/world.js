@@ -99,17 +99,44 @@ let obstacles = [
   ...ironOres.map((ore) => ({ x: ore.x, y: ore.y, r: ore.r })),
 ];
 
-function regenerateWorld() {
+function makeSeededRandom(seed) {
+  let value = seed;
+  return () => {
+    value = (value * 1664525 + 1013904223) % 4294967296;
+    return value / 4294967296;
+  };
+}
+
+function getNodeCounts() {
+  const baseArea = 4400 * 3200;
+  const areaScale = Math.max(1, Math.round((CONFIG.world.width * CONFIG.world.height) / baseArea));
+  return {
+    trees: 28 * areaScale,
+    rocks: 11 * areaScale,
+    ironOres: 7 * areaScale,
+  };
+}
+
+function rebuildObstacles() {
+  obstacles = [
+    ...trees.map((tree) => ({ x: tree.x, y: tree.y + 18, r: tree.r * 0.58 })),
+    ...rocks.map((rock) => ({ x: rock.x, y: rock.y, r: rock.r })),
+    ...ironOres.map((ore) => ({ x: ore.x, y: ore.y, r: ore.r })),
+  ];
+}
+
+function regenerateWorld(random = Math.random) {
   const occupied = [];
   const centerX = CONFIG.world.width * 0.5;
   const centerY = CONFIG.world.height * 0.5;
+  const counts = getNodeCounts();
 
   function createNodes(count, minRadius, factory) {
     const nodes = [];
     let attempts = 0;
     while (nodes.length < count && attempts < count * 100) {
       attempts += 1;
-      const node = factory(140 + Math.random() * (CONFIG.world.width - 280), 140 + Math.random() * (CONFIG.world.height - 280));
+      const node = factory(140 + random() * (CONFIG.world.width - 280), 140 + random() * (CONFIG.world.height - 280));
       if (Math.hypot(node.x - centerX, node.y - centerY) < 430) continue;
       if (occupied.some((other) => Math.hypot(node.x - other.x, node.y - other.y) < minRadius + other.r + 70)) continue;
       nodes.push(node);
@@ -118,14 +145,10 @@ function regenerateWorld() {
     return nodes;
   }
 
-  trees = createNodes(28, 64, (x, y) => ({ x, y, r: 50 + Math.random() * 20, kind: Math.random() > 0.55 ? "pine" : "round" }));
-  rocks = createNodes(11, 36, (x, y) => ({ x, y, r: 27 + Math.random() * 9 }));
-  ironOres = createNodes(7, 38, (x, y) => ({ x, y, r: 29 + Math.random() * 8 }));
-  obstacles = [
-    ...trees.map((tree) => ({ x: tree.x, y: tree.y + 18, r: tree.r * 0.58 })),
-    ...rocks.map((rock) => ({ x: rock.x, y: rock.y, r: rock.r })),
-    ...ironOres.map((ore) => ({ x: ore.x, y: ore.y, r: ore.r })),
-  ];
+  trees = createNodes(counts.trees, 64, (x, y) => ({ x, y, r: 50 + random() * 20, kind: random() > 0.55 ? "pine" : "round" }));
+  rocks = createNodes(counts.rocks, 36, (x, y) => ({ x, y, r: 27 + random() * 9 }));
+  ironOres = createNodes(counts.ironOres, 38, (x, y) => ({ x, y, r: 29 + random() * 8 }));
+  rebuildObstacles();
   if (window.Sproutworks.world) {
     window.Sproutworks.world.trees = trees;
     window.Sproutworks.world.rocks = rocks;
@@ -133,6 +156,8 @@ function regenerateWorld() {
     window.Sproutworks.world.obstacles = obstacles;
   }
 }
+
+regenerateWorld(makeSeededRandom(20260831));
 
 function clampToWorld(entity) {
   entity.x = Math.max(entity.radius, Math.min(CONFIG.world.width - entity.radius, entity.x));
