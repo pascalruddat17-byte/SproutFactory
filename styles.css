@@ -695,6 +695,17 @@ button {
   box-shadow: 0 2px 0 #c7b882;
 }
 
+.build-card.unavailable {
+  cursor: not-allowed;
+  opacity: 0.55;
+  filter: saturate(0.72);
+}
+
+.build-card.unavailable:active {
+  transform: none;
+  box-shadow: 0 5px 0 #c7b882;
+}
+
 .shop-card-title,
 .shop-card-cost {
   font-weight: 900;
@@ -819,6 +830,25 @@ button {
   border: 2px solid rgba(255, 247, 223, 0.68);
   border-radius: 8px;
   box-shadow: 0 12px 25px var(--shadow);
+  transform: translateX(-50%);
+  pointer-events: none;
+}
+
+.status-toast {
+  position: fixed;
+  left: 50%;
+  bottom: calc(max(18px, env(safe-area-inset-bottom)) + 76px);
+  z-index: 12;
+  max-width: min(420px, calc(100vw - 32px));
+  padding: 10px 14px;
+  color: #fff8dd;
+  text-align: center;
+  background: rgba(55, 74, 54, 0.92);
+  border: 3px solid rgba(255, 247, 223, 0.68);
+  border-radius: 8px;
+  box-shadow: 0 10px 28px var(--shadow);
+  font-size: 14px;
+  font-weight: 900;
   transform: translateX(-50%);
   pointer-events: none;
 }

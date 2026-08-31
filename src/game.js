@@ -2,7 +2,7 @@
 const { CONFIG } = window.Sproutworks;
 const { drawWorld, isPointInWarehouse } = window.Sproutworks.world;
 const { demolishBuildableAt, drawBuildPreview, drawDemolishPreview, drawHarvestAnimation, drawMovePreview, handleMoveToolAt, harvestResourceAt, tryPlaceBuildable, updateHarvestAnimation, updateMachines } = window.Sproutworks.machines;
-const { createInput, setupUi, showWarehousePanel, setBuildHintVisible, updateResourceCounters } = window.Sproutworks.ui;
+const { createInput, setupUi, showToast, showWarehousePanel, setBuildHintVisible, updateResourceCounters } = window.Sproutworks.ui;
 const { state } = window.Sproutworks;
 const { saveGame } = window.Sproutworks.save;
 
@@ -87,6 +87,7 @@ function draw(time) {
   drawDemolishPreview(ctx, camera, input.pointerWorld);
   drawMovePreview(ctx, camera, input.pointerWorld, time);
   drawVignette();
+  drawMinimap();
 }
 
 function drawVignette() {
@@ -137,6 +138,8 @@ function handleClicks() {
     if (state.buildMode) {
       if (tryPlaceBuildable(state.buildMode, worldX, worldY)) {
         setBuildHintVisible(Boolean(state.buildMode));
+      } else {
+        showToast("Hier kannst du das nicht platzieren.");
       }
       return;
     }
@@ -173,5 +176,51 @@ function updatePointerWorld() {
 
 function clamp(value, min, max) {
   return Math.max(min, Math.min(max, value));
+}
+
+function drawMinimap() {
+  const mapWidth = 184;
+  const mapHeight = 134;
+  const margin = 16;
+  const x = margin;
+  const y = Math.max(92, height - mapHeight - 96);
+  const scaleX = mapWidth / CONFIG.world.width;
+  const scaleY = mapHeight / CONFIG.world.height;
+  const world = window.Sproutworks.world;
+
+  ctx.save();
+  ctx.globalAlpha = 0.95;
+  ctx.fillStyle = "rgba(255, 247, 223, 0.9)";
+  ctx.fillRect(x - 5, y - 5, mapWidth + 10, mapHeight + 10);
+  ctx.strokeStyle = "#4d6f3b";
+  ctx.lineWidth = 3;
+  ctx.strokeRect(x - 5, y - 5, mapWidth + 10, mapHeight + 10);
+
+  ctx.fillStyle = "#8dce6d";
+  ctx.fillRect(x, y, mapWidth, mapHeight);
+
+  ctx.fillStyle = "#2f6f3b";
+  world.trees.forEach((tree) => drawMinimapDot(x + tree.x * scaleX, y + tree.y * scaleY, 1.6));
+  ctx.fillStyle = "#7f8580";
+  world.rocks.forEach((rock) => drawMinimapDot(x + rock.x * scaleX, y + rock.y * scaleY, 1.4));
+  ctx.fillStyle = "#b86c44";
+  world.ironOres.forEach((ore) => drawMinimapDot(x + ore.x * scaleX, y + ore.y * scaleY, 1.4));
+  ctx.fillStyle = "#f0a13b";
+  state.machines.forEach((machine) => drawMinimapDot(x + machine.x * scaleX, y + machine.y * scaleY, 2.1));
+
+  const warehouse = world.warehouse;
+  ctx.fillStyle = "#315a62";
+  ctx.fillRect(x + (warehouse.x - warehouse.width / 2) * scaleX, y + (warehouse.y - 80) * scaleY, warehouse.width * scaleX, warehouse.height * scaleY);
+
+  ctx.strokeStyle = "#fff8dd";
+  ctx.lineWidth = 2;
+  ctx.strokeRect(x + camera.x * scaleX, y + camera.y * scaleY, (width / camera.zoom) * scaleX, (height / camera.zoom) * scaleY);
+  ctx.restore();
+}
+
+function drawMinimapDot(x, y, radius) {
+  ctx.beginPath();
+  ctx.arc(x, y, radius, 0, Math.PI * 2);
+  ctx.fill();
 }
 })();

@@ -109,6 +109,7 @@ function setupUi(input) {
   const buildConveyorMergerButton = document.querySelector("#buildConveyorMergerButton");
   const buildConveyorSplitterButton = document.querySelector("#buildConveyorSplitterButton");
   const buildStorageUnitButton = document.querySelector("#buildStorageUnitButton");
+  const statusToast = document.querySelector("#statusToast");
   const categoryTabs = document.querySelectorAll(".category-tab");
   const buildCategories = document.querySelectorAll(".build-category");
   const buildHint = document.querySelector("#buildHint");
@@ -131,9 +132,22 @@ function setupUi(input) {
   };
   let reloadCodeUnlocked = false;
   let reloadInProgress = false;
+  let toastTimer = 0;
+  const buildButtons = [
+    [buildWoodCollectorButton, "woodCollector"],
+    [buildStoneCollectorButton, "stoneCollector"],
+    [buildIronCollectorButton, "ironCollector"],
+    [buildConveyorStraightButton, "conveyorStraight"],
+    [buildConveyorCornerButton, "conveyorCorner"],
+    [buildConveyorMergerButton, "conveyorMerger"],
+    [buildConveyorSplitterButton, "conveyorSplitter"],
+    [buildStorageUnitButton, "storageUnit"],
+  ];
 
   const mobileByDefault = matchMedia("(pointer: coarse)").matches;
   updateResourceCounters(resourceBar, state.resources);
+  refreshBuildCards();
+  window.setInterval(refreshBuildCards, 500);
   setTouchMode(mobileByDefault);
 
   menuButton.addEventListener("click", () => {
@@ -479,7 +493,11 @@ function setupUi(input) {
   }
 
   function startBuildMode(type) {
-    if (!window.Sproutworks.machines.canAfford(CONFIG.machines[type].cost)) return;
+    if (!window.Sproutworks.machines.canAfford(CONFIG.machines[type].cost)) {
+      showToast(`Nicht genug Material fuer ${getBuildName(type)}.`);
+      refreshBuildCards();
+      return;
+    }
     state.buildMode = type;
     state.demolishMode = false;
     state.moveMode = false;
@@ -492,6 +510,23 @@ function setupUi(input) {
     moveButton.classList.remove("active");
     buildPanel.hidden = true;
     setBuildHintVisible(true);
+  }
+
+  function refreshBuildCards() {
+    buildButtons.forEach(([button, type]) => {
+      if (!button) return;
+      button.classList.toggle("unavailable", !window.Sproutworks.machines.canAfford(CONFIG.machines[type].cost));
+    });
+  }
+
+  function showToast(message) {
+    if (!statusToast) return;
+    window.clearTimeout(toastTimer);
+    statusToast.textContent = message;
+    statusToast.hidden = false;
+    toastTimer = window.setTimeout(() => {
+      statusToast.hidden = true;
+    }, 1800);
   }
 
   return controlState;
@@ -526,10 +561,35 @@ function getPinchCenter(pointers) {
 window.Sproutworks.ui = {
   createInput,
   showWarehousePanel,
+  showToast,
   setupUi,
   setBuildHintVisible,
   updateResourceCounters,
 };
+
+function showToast(message) {
+  const statusToast = document.querySelector("#statusToast");
+  if (!statusToast) return;
+  statusToast.textContent = message;
+  statusToast.hidden = false;
+  window.clearTimeout(showToast.timer);
+  showToast.timer = window.setTimeout(() => {
+    statusToast.hidden = true;
+  }, 1800);
+}
+
+function getBuildName(type) {
+  return {
+    woodCollector: "Holzfabrik",
+    stoneCollector: "Steinfabrik",
+    ironCollector: "Metallfabrik",
+    conveyorStraight: "Foerderband",
+    conveyorCorner: "Eckfoerderband",
+    conveyorMerger: "Zusammenfuehrer",
+    conveyorSplitter: "Splitter",
+    storageUnit: "Lagerbauteil",
+  }[type] ?? "dieses Teil";
+}
 
 function updateResourceCounters(resourceBar, resources) {
   const { CONFIG } = window.Sproutworks;
