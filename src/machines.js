@@ -1,0 +1,1498 @@
+(() => {
+window.Sproutworks = window.Sproutworks || {};
+
+const { CONFIG, state } = window.Sproutworks;
+const DIRS = [
+  { dx: 0, dy: -1 },
+  { dx: 1, dy: 0 },
+  { dx: 0, dy: 1 },
+  { dx: -1, dy: 0 },
+];
+
+function rotateBuildMode() {
+  if (state.moveMode && state.movingMachineId) {
+    state.moveRotation = (state.moveRotation + 1) % 4;
+    return;
+  }
+  state.buildRotation = (state.buildRotation + 1) % 4;
+}
+
+function mirrorBuildMode() {
+  if (state.moveMode && state.movingMachineId) {
+    state.moveMirrored = !state.moveMirrored;
+    return;
+  }
+  state.buildMirrored = !state.buildMirrored;
+}
+
+function createBuildable(type, tileX, tileY) {
+  const footprint = getFootprint(type);
+  const center = footprintCenter(tileX, tileY, footprint);
+  const buildable = {
+    id: window.crypto?.randomUUID ? window.crypto.randomUUID() : `${type}-${Date.now()}-${state.machines.length}`,
+    type,
+    tileX,
+    tileY,
+    x: center.x,
+    y: center.y,
+    widthTiles: footprint.width,
+    heightTiles: footprint.height,
+    rotation: state.buildRotation,
+    mirrored: state.buildMirrored,
+    productionTimer: 0,
+    active: false,
+    connected: false,
+  };
+  if (type === "storageUnit") {
+    buildable.storage = createEmptyMachineStorage();
+    buildable.outputTimer = 0;
+    buildable.outputIndex = 0;
+  }
+  return buildable;
+}
+
+function updateMachines(delta) {
+  state.machines.forEach((machine) => {
+    const productionConfig = getProductionConfig(machine);
+    if (!productionConfig) return;
+
+    const route = getConveyorRoute(machine);
+    const startConveyor = getStartingConveyor(machine);
+    machine.connected = route.reachesWarehouse;
+    machine.active = productionConfig.hasSource(machine.x, machine.y, productionConfig.range) && Boolean(startConveyor);
+    if (!machine.active) return;
+
+    machine.productionTimer = Math.min(machine.productionTimer + delta, productionConfig.productionSeconds * 2);
+    while (machine.productionTimer >= productionConfig.productionSeconds) {
+      if (!canSpawnItemAt(startConveyor.conveyor)) {
+        machine.productionTimer = productionConfig.productionSeconds;
+        break;
+      }
+      machine.productionTimer -= productionConfig.productionSeconds;
+      spawnResourceItem(machine, startConveyor, productionConfig.resource, productionConfig.productionAmount);
+    }
+  });
+
+  updateStorageUnits(delta);
+  updateItems(delta);
+}
+
+function canPlaceBuildable(type, worldX, worldY, ignoreId = null) {
+  const tile = worldToTile(worldX, worldY);
+  const machineConfig = CONFIG.machines[type];
+  if (!machineConfig) return { ok: false, reason: "unknown-machine", tile };
+
+  const footprint = getFootprint(type);
+  const tiles = getFootprintTiles(tile.tileX, tile.tileY, footprint);
+  if (tiles.some((spot) => !isTileInsideWorld(spot.tileX, spot.tileY))) return { ok: false, reason: "outside-map", tile };
+  if (tiles.some((spot) => isWarehouseTile(spot.tileX, spot.tileY) || isWarehouseInputTile(spot.tileX, spot.tileY) || isStoragePortTile(spot.tileX, spot.tileY, ignoreId))) return { ok: false, reason: "warehouse", tile };
+  if (tiles.some((spot) => {
+    const machine = getMachineAtTile(spot.tileX, spot.tileY);
+    return machine && machine.id !== ignoreId;
+  })) return { ok: false, reason: "occupied", tile };
+  if (tiles.some((spot) => isTileBlockedByNature(spot.tileX, spot.tileY))) return { ok: false, reason: "obstacle", tile };
+
+  if (type === "storageUnit") {
+    const placementRotation = state.moveMode && state.movingMachineId ? state.moveRotation : state.buildRotation;
+    const ports = getStoragePorts({ type, tileX: tile.tileX, tileY: tile.tileY, rotation: placementRotation });
+    if (ports.some((port) => (
+      !isTileInsideWorld(port.tileX, port.tileY)
+      || isWarehouseTile(port.tileX, port.tileY)
+      || isWarehouseInputTile(port.tileX, port.tileY)
+      || isTileBlockedByNature(port.tileX, port.tileY)
+      || Boolean(getMachineAtTile(port.tileX, port.tileY))
+      || isStoragePortTile(port.tileX, port.tileY, ignoreId)
+    ))) return { ok: false, reason: "port-blocked", tile };
+  }
+
+  const center = footprintCenter(tile.tileX, tile.tileY, footprint);
+  const productionConfig = getProductionConfig({ type });
+  if (productionConfig && !productionConfig.hasSource(center.x, center.y, productionConfig.range)) {
+    return { ok: false, reason: "no-source", tile };
+  }
+
+  return { ok: true, tile };
+}
+
+function tryPlaceBuildable(type, worldX, worldY) {
+  const machineConfig = CONFIG.machines[type];
+  if (!machineConfig || !canAfford(machineConfig.cost)) return false;
+
+  const placement = canPlaceBuildable(type, worldX, worldY);
+  if (!placement.ok) return false;
+
+  payCost(machineConfig.cost);
+  state.machines.push(createBuildable(type, placement.tile.tileX, placement.tile.tileY));
+  window.Sproutworks.save?.markSaveDirty();
+  if (!isConveyorType(type) || !canAfford(machineConfig.cost)) {
+    state.buildMode = null;
+  }
+  return true;
+}
+
+function demolishBuildableAt(worldX, worldY) {
+  const tile = worldToTile(worldX, worldY);
+  const machine = getMachineAtTile(tile.tileX, tile.tileY);
+  if (!machine) return false;
+
+  refundCost(CONFIG.machines[machine.type]?.cost ?? {});
+  state.machines = state.machines.filter((item) => item.id !== machine.id);
+  removeItemsTouchingMachine(machine);
+  window.Sproutworks.save?.markSaveDirty();
+  return true;
+}
+
+function harvestResourceAt(worldX, worldY) {
+  if (state.harvestCooldown > 0) return false;
+
+  const world = window.Sproutworks.world;
+  const candidates = [
+    ...world.trees.map((node) => ({ node, resource: "wood", radius: node.r * 0.9 })),
+    ...world.rocks.map((node) => ({ node, resource: "stone", radius: node.r + 18 })),
+    ...world.ironOres.map((node) => ({ node, resource: "iron", radius: node.r + 18 })),
+  ];
+  const target = candidates
+    .map((candidate) => ({ ...candidate, distance: Math.hypot(worldX - candidate.node.x, worldY - candidate.node.y) }))
+    .filter((candidate) => candidate.distance <= candidate.radius)
+    .sort((a, b) => a.distance - b.distance)[0];
+  if (!target) return false;
+
+  const current = state.resources[target.resource] ?? 0;
+  if (current >= CONFIG.storage.resourceMax) return false;
+  state.resources[target.resource] = Math.min(CONFIG.storage.resourceMax, current + 1);
+  state.harvestCooldown = 1;
+  state.harvestAnimation = { resource: target.resource, x: target.node.x, y: target.node.y, time: 0 };
+  window.Sproutworks.save?.markSaveDirty();
+  return true;
+}
+
+function updateHarvestAnimation(delta) {
+  if (!state.harvestAnimation) return;
+  state.harvestAnimation.time += delta;
+  if (state.harvestAnimation.time >= 0.42) state.harvestAnimation = null;
+}
+
+function drawHarvestAnimation(ctx, camera) {
+  const animation = state.harvestAnimation;
+  if (!animation) return;
+
+  const progress = animation.time / 0.42;
+  const swing = Math.sin(Math.min(1, progress) * Math.PI);
+  ctx.save();
+  ctx.scale(camera.zoom, camera.zoom);
+  ctx.translate(-camera.x, -camera.y);
+  ctx.translate(animation.x + 18, animation.y - 26);
+  ctx.rotate(-0.78 + swing * 1.55);
+  ctx.lineCap = "round";
+  ctx.lineWidth = 7;
+  ctx.strokeStyle = "#7a4a28";
+  ctx.beginPath();
+  ctx.moveTo(0, 12);
+  ctx.lineTo(0, -26);
+  ctx.stroke();
+  ctx.lineWidth = 6;
+  ctx.strokeStyle = animation.resource === "wood" ? "#d99a47" : animation.resource === "stone" ? "#b8c0c0" : "#d88455";
+  ctx.beginPath();
+  if (animation.resource === "wood") {
+    ctx.moveTo(-10, -28);
+    ctx.lineTo(10, -18);
+  } else {
+    ctx.moveTo(-11, -25);
+    ctx.lineTo(11, -25);
+  }
+  ctx.stroke();
+  ctx.restore();
+}
+
+function handleMoveToolAt(worldX, worldY) {
+  if (!state.movingMachineId) {
+    const machine = getMachineAtWorld(worldX, worldY);
+    if (!machine) return false;
+    state.movingMachineId = machine.id;
+    state.moveRotation = machine.rotation;
+    state.moveMirrored = Boolean(machine.mirrored);
+    return true;
+  }
+
+  const machine = getMachineById(state.movingMachineId);
+  if (!machine) {
+    state.movingMachineId = null;
+    return false;
+  }
+
+  const placement = canPlaceBuildable(machine.type, worldX, worldY, machine.id);
+  if (!placement.ok) return false;
+
+  const footprint = getFootprint(machine.type);
+  const oldMachine = { ...machine, widthTiles: footprint.width, heightTiles: footprint.height };
+  const center = footprintCenter(placement.tile.tileX, placement.tile.tileY, footprint);
+  machine.tileX = placement.tile.tileX;
+  machine.tileY = placement.tile.tileY;
+  machine.x = center.x;
+  machine.y = center.y;
+  machine.widthTiles = footprint.width;
+  machine.heightTiles = footprint.height;
+  machine.rotation = state.moveRotation;
+  machine.mirrored = state.moveMirrored;
+  machine.productionTimer = 0;
+  removeItemsAffectedByMove(oldMachine, machine);
+  state.movingMachineId = null;
+  state.moveRotation = 0;
+  state.moveMirrored = false;
+  window.Sproutworks.save?.markSaveDirty();
+  return true;
+}
+
+function canAfford(cost) {
+  return Object.entries(cost).every(([resource, amount]) => state.resources[resource] >= amount);
+}
+
+function payCost(cost) {
+  Object.entries(cost).forEach(([resource, amount]) => {
+    state.resources[resource] -= amount;
+  });
+}
+
+function refundCost(cost) {
+  Object.entries(cost).forEach(([resource, amount]) => {
+    const refund = Math.ceil(amount / 2);
+    if (resource === "coin") {
+      state.resources[resource] += refund;
+      return;
+    }
+    state.resources[resource] = Math.min(CONFIG.storage.resourceMax, state.resources[resource] + refund);
+  });
+}
+
+function refundAllBuildings() {
+  state.machines.forEach((machine) => {
+    Object.entries(CONFIG.machines[machine.type]?.cost ?? {}).forEach(([resource, amount]) => {
+      state.resources[resource] = (state.resources[resource] ?? 0) + amount;
+    });
+  });
+  state.machines = [];
+  state.items = [];
+  window.Sproutworks.save?.markSaveDirty();
+}
+
+function drawMachines(ctx, time) {
+  state.machines.forEach((machine) => {
+    if (machine.type === "woodCollector") drawWoodCollector(ctx, machine, time);
+    if (machine.type === "stoneCollector") drawStoneCollector(ctx, machine, time);
+    if (machine.type === "ironCollector") drawIronCollector(ctx, machine, time);
+    if (machine.type === "storageUnit") drawStorageUnit(ctx, machine);
+    if (isConveyor(machine)) drawConveyor(ctx, machine, time);
+  });
+  drawItems(ctx);
+}
+
+function drawBuildPreview(ctx, camera, pointerWorld, time) {
+  if (!state.buildMode || !pointerWorld) return;
+
+  const placement = canPlaceBuildable(state.buildMode, pointerWorld.x, pointerWorld.y);
+  const tile = placement.tile ?? worldToTile(pointerWorld.x, pointerWorld.y);
+  const footprint = getFootprint(state.buildMode);
+  const center = footprintCenter(tile.tileX, tile.tileY, footprint);
+  const preview = {
+    type: state.buildMode,
+    x: center.x,
+    y: center.y,
+    tileX: tile.tileX,
+    tileY: tile.tileY,
+    widthTiles: footprint.width,
+    heightTiles: footprint.height,
+    rotation: state.buildRotation,
+    mirrored: state.buildMirrored,
+    active: placement.ok,
+    connected: false,
+  };
+
+  ctx.save();
+  ctx.scale(camera.zoom, camera.zoom);
+  ctx.translate(-camera.x, -camera.y);
+
+  ctx.globalAlpha = 0.3;
+  ctx.fillStyle = placement.ok ? "#63c65b" : "#e45a43";
+  ctx.fillRect(
+    tile.x - CONFIG.world.tileSize / 2,
+    tile.y - CONFIG.world.tileSize / 2,
+    CONFIG.world.tileSize * footprint.width,
+    CONFIG.world.tileSize * footprint.height,
+  );
+
+  const productionConfig = getProductionConfig({ type: state.buildMode });
+  if (productionConfig) {
+    ctx.beginPath();
+    ctx.arc(center.x, center.y, productionConfig.range, 0, Math.PI * 2);
+    ctx.fill();
+  }
+
+  ctx.globalAlpha = 0.88;
+  if (state.buildMode === "woodCollector") drawWoodCollector(ctx, preview, time);
+  if (state.buildMode === "stoneCollector") drawStoneCollector(ctx, preview, time);
+  if (state.buildMode === "ironCollector") drawIronCollector(ctx, preview, time);
+  if (state.buildMode === "storageUnit") drawStorageUnit(ctx, preview);
+  if (isConveyor(preview)) drawConveyor(ctx, preview, time);
+
+  ctx.restore();
+}
+
+function drawDemolishPreview(ctx, camera, pointerWorld) {
+  if (!state.demolishMode || !pointerWorld) return;
+
+  const tile = worldToTile(pointerWorld.x, pointerWorld.y);
+  const machine = getMachineAtTile(tile.tileX, tile.tileY);
+  if (!machine) return;
+
+  const footprint = getFootprint(machine.type);
+  ctx.save();
+  ctx.scale(camera.zoom, camera.zoom);
+  ctx.translate(-camera.x, -camera.y);
+  ctx.globalAlpha = 0.36;
+  ctx.fillStyle = "#e45a43";
+  ctx.fillRect(
+    machine.tileX * CONFIG.world.tileSize,
+    machine.tileY * CONFIG.world.tileSize,
+    CONFIG.world.tileSize * footprint.width,
+    CONFIG.world.tileSize * footprint.height,
+  );
+  ctx.globalAlpha = 1;
+  ctx.strokeStyle = "#7d3329";
+  ctx.lineWidth = 4;
+  ctx.strokeRect(
+    machine.tileX * CONFIG.world.tileSize + 2,
+    machine.tileY * CONFIG.world.tileSize + 2,
+    CONFIG.world.tileSize * footprint.width - 4,
+    CONFIG.world.tileSize * footprint.height - 4,
+  );
+  ctx.restore();
+}
+
+function drawMovePreview(ctx, camera, pointerWorld, time) {
+  if (!state.moveMode || !pointerWorld) return;
+
+  const selected = state.movingMachineId ? getMachineById(state.movingMachineId) : getMachineAtWorld(pointerWorld.x, pointerWorld.y);
+  if (!selected) return;
+
+  const placement = state.movingMachineId
+    ? canPlaceBuildable(selected.type, pointerWorld.x, pointerWorld.y, selected.id)
+    : { ok: true, tile: { tileX: selected.tileX, tileY: selected.tileY } };
+  const footprint = getFootprint(selected.type);
+  const tile = placement.tile ?? worldToTile(pointerWorld.x, pointerWorld.y);
+  const center = state.movingMachineId ? footprintCenter(tile.tileX, tile.tileY, footprint) : { x: selected.x, y: selected.y };
+  const preview = {
+    ...selected,
+    x: center.x,
+    y: center.y,
+    tileX: state.movingMachineId ? tile.tileX : selected.tileX,
+    tileY: state.movingMachineId ? tile.tileY : selected.tileY,
+    rotation: state.movingMachineId ? state.moveRotation : selected.rotation,
+    mirrored: state.movingMachineId ? state.moveMirrored : Boolean(selected.mirrored),
+    active: placement.ok,
+  };
+
+  ctx.save();
+  ctx.scale(camera.zoom, camera.zoom);
+  ctx.translate(-camera.x, -camera.y);
+  ctx.globalAlpha = state.movingMachineId ? 0.3 : 0.24;
+  ctx.fillStyle = placement.ok ? "#63c65b" : "#e45a43";
+  ctx.fillRect(
+    preview.tileX * CONFIG.world.tileSize,
+    preview.tileY * CONFIG.world.tileSize,
+    CONFIG.world.tileSize * footprint.width,
+    CONFIG.world.tileSize * footprint.height,
+  );
+  ctx.globalAlpha = 0.92;
+  if (preview.type === "woodCollector") drawWoodCollector(ctx, preview, time);
+  if (preview.type === "stoneCollector") drawStoneCollector(ctx, preview, time);
+  if (preview.type === "ironCollector") drawIronCollector(ctx, preview, time);
+  if (preview.type === "storageUnit") drawStorageUnit(ctx, preview);
+  if (isConveyor(preview)) drawConveyor(ctx, preview, time);
+  ctx.restore();
+}
+
+function worldToTile(x, y) {
+  const tileX = Math.floor(x / CONFIG.world.tileSize);
+  const tileY = Math.floor(y / CONFIG.world.tileSize);
+  return { tileX, tileY, ...tileToWorld(tileX, tileY) };
+}
+
+function tileToWorld(tileX, tileY) {
+  return {
+    x: tileX * CONFIG.world.tileSize + CONFIG.world.tileSize / 2,
+    y: tileY * CONFIG.world.tileSize + CONFIG.world.tileSize / 2,
+  };
+}
+
+function isTileInsideWorld(tileX, tileY) {
+  return tileX >= 0 && tileY >= 0 && tileX < CONFIG.world.width / CONFIG.world.tileSize && tileY < CONFIG.world.height / CONFIG.world.tileSize;
+}
+
+function getMachineAtTile(tileX, tileY) {
+  return state.machines.find((machine) => {
+    const footprint = getFootprint(machine.type);
+    return (
+      tileX >= machine.tileX &&
+      tileX < machine.tileX + footprint.width &&
+      tileY >= machine.tileY &&
+      tileY < machine.tileY + footprint.height
+    );
+  });
+}
+
+function getMachineAtWorld(worldX, worldY) {
+  const tile = worldToTile(worldX, worldY);
+  return getMachineAtTile(tile.tileX, tile.tileY);
+}
+
+function getMachineById(id) {
+  return state.machines.find((machine) => machine.id === id);
+}
+
+function isTileBlockedByNature(tileX, tileY) {
+  const center = tileToWorld(tileX, tileY);
+  return window.Sproutworks.world.obstacles.some((obstacle) => Math.hypot(center.x - obstacle.x, center.y - obstacle.y) < obstacle.r + 24);
+}
+
+function getWarehouseInputTile() {
+  return {
+    tileX: Math.floor((window.Sproutworks.world.warehouse.x - window.Sproutworks.world.warehouse.width / 2 - CONFIG.world.tileSize / 2) / CONFIG.world.tileSize),
+    tileY: Math.floor((window.Sproutworks.world.warehouse.y + 32) / CONFIG.world.tileSize),
+  };
+}
+
+function isWarehouseInputTile(tileX, tileY) {
+  const input = getWarehouseInputTile();
+  return input.tileX === tileX && input.tileY === tileY;
+}
+
+function isWarehouseTile(tileX, tileY) {
+  const center = tileToWorld(tileX, tileY);
+  const { warehouse } = window.Sproutworks.world;
+  return (
+    center.x >= warehouse.x - warehouse.width / 2 - 12 &&
+    center.x <= warehouse.x + warehouse.width / 2 + 12 &&
+    center.y >= warehouse.y - 80 - 12 &&
+    center.y <= warehouse.y - 80 + warehouse.height + 12
+  );
+}
+
+function createEmptyMachineStorage() {
+  return Object.fromEntries(Object.keys(CONFIG.resources).filter((resource) => resource !== "coin").map((resource) => [resource, 0]));
+}
+
+function getStorageUnits() {
+  return state.machines.filter((machine) => machine.type === "storageUnit");
+}
+
+function getStoragePorts(storage) {
+  const rotation = storage.rotation % 4;
+  const centerColumn = storage.tileX + 1;
+  const centerRow = storage.tileY + 1;
+  const ports = [
+    {
+      input: { tileX: centerColumn, tileY: storage.tileY - 1, direction: 2 },
+      output: { tileX: centerColumn, tileY: storage.tileY + 2, direction: 2 },
+    },
+    {
+      input: { tileX: storage.tileX + 3, tileY: centerRow, direction: 3 },
+      output: { tileX: storage.tileX - 1, tileY: centerRow, direction: 3 },
+    },
+    {
+      input: { tileX: centerColumn, tileY: storage.tileY + 2, direction: 0 },
+      output: { tileX: centerColumn, tileY: storage.tileY - 1, direction: 0 },
+    },
+    {
+      input: { tileX: storage.tileX - 1, tileY: centerRow, direction: 1 },
+      output: { tileX: storage.tileX + 3, tileY: centerRow, direction: 1 },
+    },
+  ][rotation];
+  return ports;
+}
+
+function getStorageInputTargetAtTile(tileX, tileY) {
+  return getStorageUnits().map((storage) => ({ storage, input: getStoragePorts(storage).input }))
+    .find(({ input }) => input.tileX === tileX && input.tileY === tileY);
+}
+
+function getStorageOutputTargetAtTile(tileX, tileY) {
+  return getStorageUnits().map((storage) => ({ storage, output: getStoragePorts(storage).output }))
+    .find(({ output }) => output.tileX === tileX && output.tileY === tileY);
+}
+
+function isStoragePortTile(tileX, tileY, ignoreId = null) {
+  return getStorageUnits().some((storage) => {
+    if (storage.id === ignoreId) return false;
+    const ports = getStoragePorts(storage);
+    return (
+      (ports.input.tileX === tileX && ports.input.tileY === tileY)
+      || (ports.output.tileX === tileX && ports.output.tileY === tileY)
+    );
+  });
+}
+
+function getStorageFill(storage) {
+  return Object.values(storage.storage ?? {}).reduce((sum, value) => sum + value, 0);
+}
+
+function canStoreInStorageUnit(storage) {
+  return getStorageFill(storage) < CONFIG.storage.unitMax;
+}
+
+function storeInStorageUnit(storage, resource) {
+  if (!storage.storage) storage.storage = createEmptyMachineStorage();
+  if (!canStoreInStorageUnit(storage)) return false;
+  storage.storage[resource] = (storage.storage[resource] ?? 0) + 1;
+  return true;
+}
+
+function hasTreeInRange(x, y, range) {
+  return window.Sproutworks.world.trees.some((tree) => Math.hypot(x - tree.x, y - tree.y) <= range + tree.r * 0.45);
+}
+
+function hasRockInRange(x, y, range) {
+  return window.Sproutworks.world.rocks.some((rock) => Math.hypot(x - rock.x, y - rock.y) <= range + rock.r);
+}
+
+function hasIronOreInRange(x, y, range) {
+  return window.Sproutworks.world.ironOres.some((ore) => Math.hypot(x - ore.x, y - ore.y) <= range + ore.r);
+}
+
+function getProductionConfig(machine) {
+  if (machine.type === "woodCollector") {
+    return {
+      resource: "wood",
+      range: CONFIG.machines.woodCollector.range,
+      productionAmount: CONFIG.machines.woodCollector.productionAmount,
+      productionSeconds: CONFIG.machines.woodCollector.productionSeconds,
+      hasSource: hasTreeInRange,
+    };
+  }
+
+  if (machine.type === "stoneCollector") {
+    return {
+      resource: "stone",
+      range: CONFIG.machines.stoneCollector.range,
+      productionAmount: CONFIG.machines.stoneCollector.productionAmount,
+      productionSeconds: CONFIG.machines.stoneCollector.productionSeconds,
+      hasSource: hasRockInRange,
+    };
+  }
+
+  if (machine.type === "ironCollector") {
+    return {
+      resource: "iron",
+      range: CONFIG.machines.ironCollector.range,
+      productionAmount: CONFIG.machines.ironCollector.productionAmount,
+      productionSeconds: CONFIG.machines.ironCollector.productionSeconds,
+      hasSource: hasIronOreInRange,
+    };
+  }
+
+  return null;
+}
+
+function getConveyorRoute(machine) {
+  const inputTile = getWarehouseInputTile();
+  const queue = getAdjacentConveyorsForMachine(machine)
+    .filter(({ conveyor, directionFromConveyor }) => getConveyorInputs(conveyor).includes(directionFromConveyor))
+    .map(({ conveyor }) => ({ conveyor, path: [pointFromMachine(machine), pointFromMachine(conveyor)] }));
+  const seen = new Set();
+  let fallbackPath = [];
+
+  while (queue.length > 0) {
+    const { conveyor, path } = queue.shift();
+    const key = tileKey(conveyor.tileX, conveyor.tileY);
+    if (seen.has(key)) continue;
+    seen.add(key);
+    fallbackPath = path;
+
+    for (const dirIndex of getConveyorOutputs(conveyor)) {
+      const dir = DIRS[dirIndex];
+      const nextTileX = conveyor.tileX + dir.dx;
+      const nextTileY = conveyor.tileY + dir.dy;
+      if (nextTileX === inputTile.tileX && nextTileY === inputTile.tileY) {
+        return { path: [...path, tileToWorld(inputTile.tileX, inputTile.tileY)], reachesWarehouse: true };
+      }
+      if (getStorageInputTargetAtTile(nextTileX, nextTileY)) {
+        return { path: [...path, tileToWorld(nextTileX, nextTileY)], reachesWarehouse: true };
+      }
+
+      const nextMachine = getMachineAtTile(nextTileX, nextTileY);
+      if (!nextMachine || !isConveyor(nextMachine)) continue;
+      if (getConveyorInputs(nextMachine).includes(oppositeDir(dirIndex))) {
+        queue.push({ conveyor: nextMachine, path: [...path, pointFromMachine(nextMachine)] });
+      }
+    }
+  }
+
+  return { path: fallbackPath, reachesWarehouse: false };
+}
+
+function getStartingConveyor(machine) {
+  return getAdjacentConveyorsForMachine(machine)
+    .find(({ conveyor, directionFromConveyor }) => getConveyorInputs(conveyor).includes(directionFromConveyor));
+}
+
+function getAdjacentConveyorsForMachine(machine) {
+  const footprint = getFootprint(machine.type);
+  const edgeTiles = getFootprintTiles(machine.tileX, machine.tileY, footprint);
+  const candidates = [];
+
+  edgeTiles.forEach((tile) => {
+    DIRS.forEach((dir, directionFromMachine) => {
+      const nextTileX = tile.tileX + dir.dx;
+      const nextTileY = tile.tileY + dir.dy;
+      const insideFootprint = edgeTiles.some((spot) => spot.tileX === nextTileX && spot.tileY === nextTileY);
+      if (insideFootprint) return;
+
+      const conveyor = getMachineAtTile(nextTileX, nextTileY);
+      if (!conveyor || !isConveyor(conveyor)) return;
+      candidates.push({ conveyor, directionFromConveyor: oppositeDir(directionFromMachine) });
+    });
+  });
+
+  return candidates;
+}
+
+function getAdjacentConveyors(tileX, tileY) {
+  return DIRS.flatMap((dir, directionFromMachine) => {
+    const conveyor = getMachineAtTile(tileX + dir.dx, tileY + dir.dy);
+    if (!conveyor || !isConveyor(conveyor)) return [];
+    return [{ conveyor, directionFromConveyor: oppositeDir(directionFromMachine) }];
+  });
+}
+
+function getConveyorConnections(conveyor) {
+  return [...new Set([...getConveyorInputs(conveyor), ...getConveyorOutputs(conveyor)])];
+}
+
+function getConveyorInputs(conveyor) {
+  const rotation = conveyor.rotation % 4;
+  if (conveyor.type === "conveyorStraight") return [rotateDir(3, rotation)];
+  if (conveyor.type === "conveyorCorner") return [rotateDir(conveyor.mirrored ? 2 : 0, rotation)];
+  if (conveyor.type === "conveyorMerger") return rotateDirs([3, 0, 2], rotation);
+  if (conveyor.type === "conveyorSplitter") return [rotateDir(3, rotation)];
+  return [];
+}
+
+function getConveyorOutputs(conveyor) {
+  const rotation = conveyor.rotation % 4;
+  if (conveyor.type === "conveyorStraight") return [rotateDir(1, rotation)];
+  if (conveyor.type === "conveyorCorner") return [rotateDir(1, rotation)];
+  if (conveyor.type === "conveyorMerger") return [rotateDir(1, rotation)];
+  if (conveyor.type === "conveyorSplitter") return rotateDirs([1, 0, 2], rotation);
+  return [];
+}
+
+function isConveyor(machine) {
+  return isConveyorType(machine.type);
+}
+
+function isConveyorType(type) {
+  return type === "conveyorStraight" || type === "conveyorCorner" || type === "conveyorMerger" || type === "conveyorSplitter";
+}
+
+function oppositeDir(dirIndex) {
+  return (dirIndex + 2) % 4;
+}
+
+function rotateDirs(dirs, rotation) {
+  return dirs.map((dir) => rotateDir(dir, rotation));
+}
+
+function rotateDir(dir, rotation) {
+  return (dir + rotation) % 4;
+}
+
+function tileKey(tileX, tileY) {
+  return `${tileX},${tileY}`;
+}
+
+function pointFromMachine(machine) {
+  return { x: machine.x, y: machine.y };
+}
+
+function spawnResourceItem(machine, startConveyor, resource, amount) {
+  for (let i = 0; i < amount; i += 1) {
+    state.items.push({
+      type: resource,
+      path: [pointFromMachine(machine), pointFromMachine(startConveyor.conveyor)],
+      previousTile: { tileX: machine.tileX, tileY: machine.tileY },
+      currentTile: { tileX: startConveyor.conveyor.tileX, tileY: startConveyor.conveyor.tileY },
+      segment: 0,
+      progress: 0,
+      speed: 95,
+      x: machine.x,
+      y: machine.y,
+    });
+  }
+}
+
+function updateStorageUnits(delta) {
+  getStorageUnits().forEach((storage) => {
+    if (!storage.storage) storage.storage = createEmptyMachineStorage();
+    const output = getStorageOutputConveyor(storage);
+    storage.active = Boolean(output) && getStorageFill(storage) > 0;
+    if (!storage.active) return;
+
+    storage.outputTimer = (storage.outputTimer ?? 0) + delta;
+    while (storage.outputTimer >= CONFIG.machines.storageUnit.outputSeconds) {
+      if (!canSpawnItemAt(output.conveyor)) {
+        storage.outputTimer = CONFIG.machines.storageUnit.outputSeconds;
+        break;
+      }
+      const resource = takeStorageOutputResource(storage);
+      if (!resource) {
+        storage.outputTimer = CONFIG.machines.storageUnit.outputSeconds;
+        break;
+      }
+      storage.outputTimer -= CONFIG.machines.storageUnit.outputSeconds;
+      spawnStoredResourceItem(storage, output, resource);
+      window.Sproutworks.save?.markSaveDirty();
+    }
+  });
+}
+
+function getStorageOutputConveyor(storage) {
+  const output = getStoragePorts(storage).output;
+  const dir = DIRS[output.direction];
+  const tile = {
+    tileX: output.tileX + dir.dx,
+    tileY: output.tileY + dir.dy,
+  };
+  const conveyor = getMachineAtTile(tile.tileX, tile.tileY);
+  if (!conveyor || !isConveyor(conveyor)) return null;
+  if (!getConveyorInputs(conveyor).includes(oppositeDir(output.direction))) return null;
+  return { conveyor, output, tile };
+}
+
+function takeStorageOutputResource(storage) {
+  const resources = Object.keys(CONFIG.resources).filter((resource) => resource !== "coin");
+  for (let i = 0; i < resources.length; i += 1) {
+    const index = ((storage.outputIndex ?? 0) + i) % resources.length;
+    const resource = resources[index];
+    if ((storage.storage?.[resource] ?? 0) <= 0) continue;
+    storage.storage[resource] -= 1;
+    storage.outputIndex = (index + 1) % resources.length;
+    return resource;
+  }
+  return null;
+}
+
+function spawnStoredResourceItem(storage, output, resource) {
+  const outputPoint = tileToWorld(output.output.tileX, output.output.tileY);
+  state.items.push({
+    type: resource,
+    path: [outputPoint, pointFromMachine(output.conveyor)],
+    previousTile: { tileX: output.output.tileX, tileY: output.output.tileY },
+    currentTile: { tileX: output.conveyor.tileX, tileY: output.conveyor.tileY },
+    segment: 0,
+    progress: 0,
+    speed: 95,
+    x: outputPoint.x,
+    y: outputPoint.y,
+  });
+}
+
+function updateItems(delta) {
+  removeDuplicateWaitingItems();
+
+  for (let i = state.items.length - 1; i >= 0; i -= 1) {
+    const item = state.items[i];
+    if (!isItemRouteStillValid(item)) {
+      state.items.splice(i, 1);
+      continue;
+    }
+
+    let remaining = item.speed * delta;
+    let removeItem = false;
+    let deliverItem = false;
+
+    while (remaining > 0 && item.segment < item.path.length - 1) {
+      const from = item.path[item.segment];
+      const to = item.path[item.segment + 1];
+      const segmentLength = Math.max(1, Math.hypot(to.x - from.x, to.y - from.y));
+      const distanceLeft = segmentLength * (1 - item.progress);
+
+      if (remaining >= distanceLeft) {
+        if (isItemBlockedAt(item, to.x, to.y)) {
+          remaining = 0;
+          break;
+        }
+        remaining -= distanceLeft;
+        item.segment += 1;
+        item.progress = 0;
+        if (item.segment >= item.path.length - 1) {
+          const nextStep = updateItemRouteAtConveyor(item);
+          if (nextStep === "deliver") {
+            deliverItem = true;
+            break;
+          }
+          if (nextStep === "stored") {
+            window.Sproutworks.save?.markSaveDirty();
+            removeItem = true;
+            break;
+          }
+          if (nextStep === "remove") {
+            removeItem = true;
+            break;
+          }
+          if (nextStep === "wait") {
+            placeItemAtWaitPoint(item);
+            break;
+          }
+        }
+      } else {
+        const nextProgress = item.progress + remaining / segmentLength;
+        const nextX = from.x + (to.x - from.x) * nextProgress;
+        const nextY = from.y + (to.y - from.y) * nextProgress;
+        if (isItemBlockedAt(item, nextX, nextY)) {
+          remaining = 0;
+          break;
+        }
+        item.progress = nextProgress;
+        remaining = 0;
+      }
+    }
+
+    if (deliverItem) {
+      deliverResourceItem(item);
+      window.Sproutworks.save?.markSaveDirty();
+      state.items.splice(i, 1);
+      continue;
+    }
+
+    if (removeItem) {
+      state.items.splice(i, 1);
+      continue;
+    }
+
+    if (item.segment >= item.path.length - 1) {
+      const nextStep = updateItemRouteAtConveyor(item);
+      if (nextStep === "deliver") {
+        deliverResourceItem(item);
+        window.Sproutworks.save?.markSaveDirty();
+      }
+      if (nextStep === "stored") {
+        window.Sproutworks.save?.markSaveDirty();
+        state.items.splice(i, 1);
+        continue;
+      }
+      if (nextStep === "wait") {
+        placeItemAtWaitPoint(item);
+        continue;
+      }
+      if (nextStep !== "continue") {
+        state.items.splice(i, 1);
+        continue;
+      }
+    }
+
+    const from = item.path[item.segment];
+    const to = item.path[item.segment + 1];
+    item.x = from.x + (to.x - from.x) * item.progress;
+    item.y = from.y + (to.y - from.y) * item.progress;
+  }
+}
+
+function updateItemRouteAtConveyor(item) {
+  const currentTile = item.currentTile;
+  if (!currentTile) return "remove";
+
+  const inputTile = getWarehouseInputTile();
+  if (currentTile.tileX === inputTile.tileX && currentTile.tileY === inputTile.tileY) {
+    return canStoreResource(item.type) ? "deliver" : "wait";
+  }
+
+  const storageInput = getStorageInputTargetAtTile(currentTile.tileX, currentTile.tileY);
+  if (storageInput) {
+    return storeInStorageUnit(storageInput.storage, item.type) ? "stored" : "wait";
+  }
+
+  const conveyor = getMachineAtTile(currentTile.tileX, currentTile.tileY);
+  if (!conveyor || !isConveyor(conveyor)) return "remove";
+  item.waiting = false;
+
+  const outputs = getConveyorOutputs(conveyor);
+  const previousKey = item.previousTile ? tileKey(item.previousTile.tileX, item.previousTile.tileY) : "";
+  const candidates = [];
+
+  for (const dirIndex of outputs) {
+    const dir = DIRS[dirIndex];
+    const nextTile = {
+      tileX: currentTile.tileX + dir.dx,
+      tileY: currentTile.tileY + dir.dy,
+    };
+
+    if (nextTile.tileX === inputTile.tileX && nextTile.tileY === inputTile.tileY) {
+      if (!canStoreResource(item.type) && isTileOccupiedByWaitingItem(nextTile.tileX, nextTile.tileY, item)) continue;
+      item.path.push(tileToWorld(inputTile.tileX, inputTile.tileY));
+      item.previousTile = { ...currentTile };
+      item.currentTile = { ...inputTile };
+      item.segment = item.path.length - 2;
+      item.progress = 0;
+      return "continue";
+    }
+
+    if (getStorageInputTargetAtTile(nextTile.tileX, nextTile.tileY)) {
+      const storageInput = getStorageInputTargetAtTile(nextTile.tileX, nextTile.tileY);
+      if (!canStoreInStorageUnit(storageInput.storage) && isTileOccupiedByWaitingItem(nextTile.tileX, nextTile.tileY, item)) continue;
+      item.path.push(tileToWorld(nextTile.tileX, nextTile.tileY));
+      item.previousTile = { ...currentTile };
+      item.currentTile = { ...nextTile };
+      item.segment = item.path.length - 2;
+      item.progress = 0;
+      return "continue";
+    }
+
+    const nextMachine = getMachineAtTile(nextTile.tileX, nextTile.tileY);
+    if (!nextMachine || !isConveyor(nextMachine)) continue;
+    if (!getConveyorInputs(nextMachine).includes(oppositeDir(dirIndex))) continue;
+    if (isTileOccupiedByWaitingItem(nextTile.tileX, nextTile.tileY, item)) continue;
+
+    candidates.push({
+      conveyor: nextMachine,
+      tile: nextTile,
+      key: tileKey(nextTile.tileX, nextTile.tileY),
+    });
+  }
+
+  const forwardCandidates = candidates.filter((candidate) => candidate.key !== previousKey);
+  const usableCandidates = forwardCandidates.length > 0 ? forwardCandidates : candidates;
+  if (usableCandidates.length === 0) return "wait";
+
+  conveyor.routeIndex = (conveyor.routeIndex ?? 0) % usableCandidates.length;
+  const next = usableCandidates[conveyor.routeIndex];
+  conveyor.routeIndex = (conveyor.routeIndex + 1) % usableCandidates.length;
+
+  item.previousTile = { ...currentTile };
+  item.currentTile = { ...next.tile };
+  item.path.push(pointFromMachine(next.conveyor));
+  item.segment = item.path.length - 2;
+  item.progress = 0;
+  return "continue";
+}
+
+function isItemRouteStillValid(item) {
+  if (!item.currentTile) return false;
+  const inputTile = getWarehouseInputTile();
+  if (item.currentTile.tileX === inputTile.tileX && item.currentTile.tileY === inputTile.tileY) return true;
+  if (getStorageInputTargetAtTile(item.currentTile.tileX, item.currentTile.tileY)) return true;
+
+  const targetMachine = getMachineAtTile(item.currentTile.tileX, item.currentTile.tileY);
+  return Boolean(targetMachine && isConveyor(targetMachine));
+}
+
+function placeItemAtWaitPoint(item) {
+  const waitPoint = item.path[item.path.length - 1];
+  item.x = waitPoint.x;
+  item.y = waitPoint.y;
+  item.progress = 0;
+  item.segment = Math.max(0, item.path.length - 1);
+  item.waiting = true;
+}
+
+function removeDuplicateWaitingItems() {
+  const occupiedTiles = new Set();
+  state.items = state.items.filter((item) => {
+    if (!item.waiting || !item.currentTile) return true;
+    const key = tileKey(item.currentTile.tileX, item.currentTile.tileY);
+    if (occupiedTiles.has(key)) return false;
+    occupiedTiles.add(key);
+    return true;
+  });
+}
+
+function removeItemsTouchingMachine(machine) {
+  const footprint = getFootprint(machine.type);
+  const removedTiles = getFootprintTiles(machine.tileX, machine.tileY, footprint).map((tile) => tileKey(tile.tileX, tile.tileY));
+  state.items = state.items.filter((item) => {
+    const currentKey = item.currentTile ? tileKey(item.currentTile.tileX, item.currentTile.tileY) : "";
+    const previousKey = item.previousTile ? tileKey(item.previousTile.tileX, item.previousTile.tileY) : "";
+    return !removedTiles.includes(currentKey) && !removedTiles.includes(previousKey);
+  });
+}
+
+function removeItemsAffectedByMove(oldMachine, newMachine) {
+  const oldTiles = getFootprintTiles(oldMachine.tileX, oldMachine.tileY, getFootprint(oldMachine.type)).map((tile) => tileKey(tile.tileX, tile.tileY));
+  const newTiles = getFootprintTiles(newMachine.tileX, newMachine.tileY, getFootprint(newMachine.type)).map((tile) => tileKey(tile.tileX, tile.tileY));
+  const blockedTiles = new Set([...oldTiles, ...newTiles]);
+
+  state.items = state.items.filter((item) => {
+    const currentKey = item.currentTile ? tileKey(item.currentTile.tileX, item.currentTile.tileY) : "";
+    const previousKey = item.previousTile ? tileKey(item.previousTile.tileX, item.previousTile.tileY) : "";
+    if (blockedTiles.has(currentKey) || blockedTiles.has(previousKey)) return false;
+    return !item.path?.some((point) => Math.hypot(point.x - oldMachine.x, point.y - oldMachine.y) < 2);
+  });
+}
+
+function deliverResourceItem(item) {
+  state.resources[item.type] = Math.min(CONFIG.storage.resourceMax, (state.resources[item.type] ?? 0) + 1);
+}
+
+function canStoreResource(resource) {
+  return (state.resources[resource] ?? 0) < CONFIG.storage.resourceMax;
+}
+
+function canSpawnItemAt(conveyor) {
+  return !isTileOccupiedByWaitingItem(conveyor.tileX, conveyor.tileY);
+}
+
+function isItemBlockedAt(item, x, y) {
+  const targetTile = worldToTile(x, y);
+  return isTileOccupiedByWaitingItem(targetTile.tileX, targetTile.tileY, item);
+}
+
+function isTileOccupiedByWaitingItem(tileX, tileY, ignoredItem = null) {
+  return state.items.some((other) => (
+    other.waiting
+    && other !== ignoredItem
+    && other.currentTile?.tileX === tileX
+    && other.currentTile?.tileY === tileY
+  ));
+}
+
+function drawItems(ctx) {
+  state.items.forEach((item) => {
+    ctx.save();
+    ctx.translate(item.x, item.y);
+    ctx.fillStyle = "rgba(39, 48, 35, 0.16)";
+    ctx.beginPath();
+    ctx.ellipse(0, 9, 13, 5, 0, 0, Math.PI * 2);
+    ctx.fill();
+
+    ctx.fillStyle = item.type === "stone" ? "#aeb2aa" : item.type === "iron" ? "#8b9da2" : "#c87838";
+    roundedRect(ctx, -11, -9, 22, 16, 4);
+    ctx.fill();
+    ctx.strokeStyle = item.type === "stone" ? "#6f766e" : item.type === "iron" ? "#516368" : "#744424";
+    ctx.lineWidth = 2;
+    ctx.stroke();
+
+    ctx.strokeStyle = item.type === "stone" ? "#e7e5d9" : item.type === "iron" ? "#dce6e8" : "#f0b05a";
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.moveTo(-7, -3);
+    ctx.lineTo(7, -3);
+    ctx.moveTo(-6, 3);
+    ctx.lineTo(6, 3);
+    ctx.stroke();
+    ctx.restore();
+  });
+}
+
+function drawWoodCollector(ctx, machine, time) {
+  ctx.save();
+  ctx.translate(machine.x, machine.y);
+
+  const size = CONFIG.world.tileSize;
+  ctx.fillStyle = "rgba(39, 48, 35, 0.15)";
+  ctx.beginPath();
+  ctx.ellipse(0, 46, 62, 19, 0, 0, Math.PI * 2);
+  ctx.fill();
+
+  ctx.fillStyle = "#567177";
+  roundedRect(ctx, -56, -48, 112, 92, 8);
+  ctx.fill();
+  ctx.strokeStyle = "#2f4448";
+  ctx.lineWidth = 4;
+  ctx.stroke();
+
+  ctx.fillStyle = "#f0a13b";
+  roundedRect(ctx, -42, -32, 84, 24, 5);
+  ctx.fill();
+
+  ctx.strokeStyle = machine.active ? "#ffd36a" : "#b5beb8";
+  ctx.lineWidth = 5;
+  ctx.beginPath();
+  ctx.arc(-22, 16, 17, 0.1 + time * 0.004, Math.PI * 1.6 + time * 0.004);
+  ctx.stroke();
+
+  ctx.fillStyle = machine.active ? "#7bd34c" : machine.connected ? "#ffd36a" : "#929b96";
+  ctx.beginPath();
+  ctx.arc(42, -34, 6, 0, Math.PI * 2);
+  ctx.fill();
+
+  ctx.strokeStyle = "#7a4a28";
+  ctx.lineWidth = 7;
+  ctx.beginPath();
+  ctx.moveTo(-52, 20);
+  ctx.lineTo(-size - 4, 2);
+  ctx.moveTo(52, 20);
+  ctx.lineTo(size + 4, 2);
+  ctx.stroke();
+
+  ctx.restore();
+}
+
+function drawStoneCollector(ctx, machine, time) {
+  ctx.save();
+  ctx.translate(machine.x, machine.y);
+
+  ctx.fillStyle = "rgba(39, 48, 35, 0.15)";
+  ctx.beginPath();
+  ctx.ellipse(0, 46, 64, 20, 0, 0, Math.PI * 2);
+  ctx.fill();
+
+  ctx.fillStyle = "#6d7d82";
+  roundedRect(ctx, -56, -48, 112, 92, 8);
+  ctx.fill();
+  ctx.strokeStyle = "#34464b";
+  ctx.lineWidth = 4;
+  ctx.stroke();
+
+  ctx.fillStyle = "#c8c8bb";
+  roundedRect(ctx, -42, -32, 84, 25, 5);
+  ctx.fill();
+
+  ctx.fillStyle = "#f0a13b";
+  roundedRect(ctx, -18, 8, 60, 25, 5);
+  ctx.fill();
+
+  ctx.strokeStyle = machine.active ? "#ffd36a" : "#b5beb8";
+  ctx.lineWidth = 5;
+  ctx.beginPath();
+  ctx.moveTo(-38, 24);
+  ctx.lineTo(-16, 2);
+  ctx.lineTo(4, 24);
+  ctx.stroke();
+
+  ctx.fillStyle = machine.active ? "#7bd34c" : machine.connected ? "#ffd36a" : "#929b96";
+  ctx.beginPath();
+  ctx.arc(42, -34, 6, 0, Math.PI * 2);
+  ctx.fill();
+
+  ctx.fillStyle = "#9fa59f";
+  ctx.beginPath();
+  ctx.ellipse(-36, 28, 15, 10, -0.2, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.fillStyle = "#d7d6c8";
+  ctx.beginPath();
+  ctx.ellipse(-41, 24, 5, 3, -0.2, 0, Math.PI * 2);
+  ctx.fill();
+
+  ctx.restore();
+}
+
+function drawIronCollector(ctx, machine, time) {
+  ctx.save();
+  ctx.translate(machine.x, machine.y);
+
+  ctx.fillStyle = "rgba(39, 48, 35, 0.15)";
+  ctx.beginPath();
+  ctx.ellipse(0, 46, 64, 20, 0, 0, Math.PI * 2);
+  ctx.fill();
+
+  ctx.fillStyle = "#596b73";
+  roundedRect(ctx, -56, -48, 112, 92, 8);
+  ctx.fill();
+  ctx.strokeStyle = "#2f3d42";
+  ctx.lineWidth = 4;
+  ctx.stroke();
+
+  ctx.fillStyle = "#d8dee0";
+  roundedRect(ctx, -42, -31, 84, 24, 5);
+  ctx.fill();
+
+  ctx.fillStyle = "#f0a13b";
+  roundedRect(ctx, -36, 10, 72, 24, 5);
+  ctx.fill();
+
+  ctx.strokeStyle = machine.active ? "#ffd36a" : "#aeb8ba";
+  ctx.lineWidth = 5;
+  ctx.beginPath();
+  ctx.moveTo(-32, 22);
+  ctx.lineTo(-12, -2);
+  ctx.lineTo(12, 22);
+  ctx.lineTo(32, -2);
+  ctx.stroke();
+
+  ctx.fillStyle = "#39494e";
+  roundedRect(ctx, -18, -3, 36, 18, 4);
+  ctx.fill();
+  ctx.strokeStyle = "#b8c7ca";
+  ctx.lineWidth = 3;
+  ctx.beginPath();
+  ctx.moveTo(-10, 6);
+  ctx.lineTo(10, 6);
+  ctx.stroke();
+
+  ctx.fillStyle = machine.active ? "#7bd34c" : machine.connected ? "#ffd36a" : "#929b96";
+  ctx.beginPath();
+  ctx.arc(42, -34, 6, 0, Math.PI * 2);
+  ctx.fill();
+
+  ctx.fillStyle = "#8b9da2";
+  ctx.beginPath();
+  ctx.ellipse(-38, 30, 13, 9, -0.25, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.fillStyle = "#e5ecee";
+  ctx.beginPath();
+  ctx.ellipse(-43, 26, 5, 3, -0.25, 0, Math.PI * 2);
+  ctx.fill();
+
+  ctx.restore();
+}
+
+function drawStorageUnit(ctx, machine) {
+  const size = CONFIG.world.tileSize;
+  const width = size * 3;
+  const height = size * 2;
+  const stored = getStorageFill(machine);
+  const max = CONFIG.storage.unitMax;
+  const fill = Math.min(1, stored / max);
+  const ports = getStoragePorts(machine);
+
+  ctx.save();
+  ctx.translate(machine.x, machine.y);
+
+  ctx.fillStyle = "rgba(39, 48, 35, 0.15)";
+  ctx.beginPath();
+  ctx.ellipse(0, height / 2 - 6, width * 0.46, 20, 0, 0, Math.PI * 2);
+  ctx.fill();
+
+  ctx.fillStyle = "#d7ded0";
+  roundedRect(ctx, -width / 2 + 6, -height / 2 + 8, width - 12, height - 14, 8);
+  ctx.fill();
+  ctx.strokeStyle = "#536568";
+  ctx.lineWidth = 4;
+  ctx.stroke();
+
+  ctx.fillStyle = "#315a62";
+  roundedRect(ctx, -width / 2 + 12, -height / 2 + 14, width - 24, 18, 5);
+  ctx.fill();
+  ctx.fillStyle = "#4fa4c8";
+  roundedRect(ctx, -width / 2 + 22, -height / 2 + 19, width - 44, 7, 4);
+  ctx.fill();
+
+  ctx.fillStyle = "#59676a";
+  roundedRect(ctx, -40, -18, 80, 46, 5);
+  ctx.fill();
+  ctx.strokeStyle = "#333f42";
+  ctx.lineWidth = 3;
+  for (let y = -8; y <= 17; y += 10) {
+    ctx.beginPath();
+    ctx.moveTo(-33, y);
+    ctx.lineTo(33, y);
+    ctx.stroke();
+  }
+
+  ctx.fillStyle = "#ffc04d";
+  roundedRect(ctx, -28, 12, 56, 18, 4);
+  ctx.fill();
+
+  ctx.fillStyle = "#f3b24d";
+  drawStorageCrate(ctx, -width / 2 + 20, height / 2 - 42, 28);
+  drawStorageCrate(ctx, width / 2 - 48, height / 2 - 42, 28);
+
+  ctx.fillStyle = "#fff7df";
+  roundedRect(ctx, -width / 2 + 16, -height / 2 + 42, width - 32, 12, 4);
+  ctx.fill();
+  ctx.fillStyle = "#7bd34c";
+  roundedRect(ctx, -width / 2 + 18, -height / 2 + 44, (width - 36) * fill, 8, 3);
+  ctx.fill();
+
+  ctx.fillStyle = "#2d3526";
+  ctx.font = "900 15px Trebuchet MS, sans-serif";
+  ctx.textAlign = "center";
+  ctx.fillText(`${stored}/${max}`, 0, -height / 2 + 70);
+
+  ctx.restore();
+
+  drawStoragePort(ctx, ports.input, "#7bd34c", "IN");
+  drawStoragePort(ctx, ports.output, "#4fa4c8", "OUT");
+}
+
+function drawStoragePort(ctx, port, color, label) {
+  const size = CONFIG.world.tileSize;
+  const point = tileToWorld(port.tileX, port.tileY);
+  ctx.save();
+  ctx.translate(point.x, point.y);
+  ctx.fillStyle = "rgba(39, 48, 35, 0.12)";
+  ctx.beginPath();
+  ctx.ellipse(0, 15, 30, 10, 0, 0, Math.PI * 2);
+  ctx.fill();
+
+  ctx.fillStyle = "#39484b";
+  roundedRect(ctx, -size / 2 + 8, -size / 2 + 8, size - 16, size - 16, 8);
+  ctx.fill();
+  ctx.strokeStyle = color;
+  ctx.lineWidth = 4;
+  ctx.stroke();
+
+  ctx.fillStyle = color;
+  ctx.font = "900 13px Trebuchet MS, sans-serif";
+  ctx.textAlign = "center";
+  ctx.textBaseline = "middle";
+  ctx.fillText(label, 0, 0);
+  ctx.restore();
+}
+
+function drawStorageCrate(ctx, x, y, size) {
+  ctx.fillRect(x, y, size, size);
+  ctx.strokeStyle = "#7a4a28";
+  ctx.lineWidth = 3;
+  ctx.strokeRect(x, y, size, size);
+  ctx.beginPath();
+  ctx.moveTo(x + 5, y + 5);
+  ctx.lineTo(x + size - 5, y + size - 5);
+  ctx.moveTo(x + size - 5, y + 5);
+  ctx.lineTo(x + 5, y + size - 5);
+  ctx.stroke();
+}
+
+function getFootprint(type) {
+  const machineConfig = CONFIG.machines[type] ?? {};
+  return {
+    width: machineConfig.widthTiles ?? 1,
+    height: machineConfig.heightTiles ?? 1,
+  };
+}
+
+function footprintCenter(tileX, tileY, footprint) {
+  return {
+    x: tileX * CONFIG.world.tileSize + (CONFIG.world.tileSize * footprint.width) / 2,
+    y: tileY * CONFIG.world.tileSize + (CONFIG.world.tileSize * footprint.height) / 2,
+  };
+}
+
+function getFootprintTiles(tileX, tileY, footprint) {
+  const tiles = [];
+  for (let y = 0; y < footprint.height; y += 1) {
+    for (let x = 0; x < footprint.width; x += 1) {
+      tiles.push({ tileX: tileX + x, tileY: tileY + y });
+    }
+  }
+  return tiles;
+}
+
+function drawConveyor(ctx, conveyor, time) {
+  ctx.save();
+  ctx.translate(conveyor.x, conveyor.y);
+  ctx.rotate((Math.PI / 2) * conveyor.rotation);
+  if (conveyor.type === "conveyorCorner" && conveyor.mirrored) ctx.scale(1, -1);
+
+  const size = CONFIG.world.tileSize;
+  ctx.fillStyle = "rgba(39, 48, 35, 0.12)";
+  ctx.fillRect(-size / 2 + 4, -size / 2 + 8, size - 8, size - 16);
+
+  ctx.fillStyle = "#515d60";
+  roundedRect(ctx, -size / 2 + 5, -15, size - 10, 30, 7);
+  ctx.fill();
+  ctx.strokeStyle = "#2f383b";
+  ctx.lineWidth = 3;
+  ctx.stroke();
+
+  ctx.strokeStyle = "#f0a13b";
+  ctx.lineWidth = 4;
+  ctx.setLineDash([12, 12]);
+  ctx.lineDashOffset = -(time * 0.035) % 24;
+  ctx.beginPath();
+  if (conveyor.type === "conveyorStraight") {
+    ctx.moveTo(-size / 2 + 10, 0);
+    ctx.lineTo(size / 2 - 10, 0);
+    ctx.stroke();
+    drawArrowHead(ctx, size / 2 - 9, 0, 0);
+  } else if (conveyor.type === "conveyorCorner") {
+    ctx.moveTo(0, -size / 2 + 10);
+    ctx.quadraticCurveTo(0, 0, size / 2 - 10, 0);
+    ctx.stroke();
+    drawArrowHead(ctx, size / 2 - 9, 0, 0);
+  } else {
+    ctx.moveTo(-size / 2 + 10, 0);
+    ctx.lineTo(size / 2 - 9, 0);
+    ctx.moveTo(0, -size / 2 + 10);
+    ctx.lineTo(0, size / 2 - 10);
+    ctx.stroke();
+  }
+  ctx.setLineDash([]);
+
+  if (conveyor.type === "conveyorMerger" || conveyor.type === "conveyorSplitter") {
+    drawConveyorJunctionMark(ctx, conveyor.type);
+  }
+
+  ctx.restore();
+}
+
+function drawConveyorJunctionMark(ctx, type) {
+  ctx.lineCap = "round";
+  ctx.lineJoin = "round";
+  ctx.strokeStyle = "#ffd36a";
+  ctx.fillStyle = "#ffd36a";
+  ctx.lineWidth = 4;
+
+  if (type === "conveyorMerger") {
+    ctx.beginPath();
+    ctx.moveTo(-19, -15);
+    ctx.lineTo(0, 0);
+    ctx.lineTo(22, 0);
+    ctx.moveTo(-19, 15);
+    ctx.lineTo(0, 0);
+    ctx.moveTo(-22, 0);
+    ctx.lineTo(0, 0);
+    ctx.stroke();
+    drawArrowHead(ctx, 22, 0, 0);
+    return;
+  }
+
+  ctx.beginPath();
+  ctx.moveTo(-22, 0);
+  ctx.lineTo(0, 0);
+  ctx.lineTo(22, 0);
+  ctx.moveTo(0, 0);
+  ctx.lineTo(19, -15);
+  ctx.moveTo(0, 0);
+  ctx.lineTo(19, 15);
+  ctx.stroke();
+  drawArrowHead(ctx, 22, 0, 0);
+  drawArrowHead(ctx, 19, -15, -Math.PI / 4);
+  drawArrowHead(ctx, 19, 15, Math.PI / 4);
+}
+
+function drawArrowHead(ctx, x, y, angle) {
+  ctx.save();
+  ctx.translate(x, y);
+  ctx.rotate(angle);
+  ctx.beginPath();
+  ctx.moveTo(0, 0);
+  ctx.lineTo(-8, -5);
+  ctx.lineTo(-8, 5);
+  ctx.closePath();
+  ctx.fill();
+  ctx.restore();
+}
+
+function roundedRect(ctx, x, y, width, height, radius) {
+  ctx.beginPath();
+  ctx.moveTo(x + radius, y);
+  ctx.lineTo(x + width - radius, y);
+  ctx.quadraticCurveTo(x + width, y, x + width, y + radius);
+  ctx.lineTo(x + width, y + height - radius);
+  ctx.quadraticCurveTo(x + width, y + height, x + width - radius, y + height);
+  ctx.lineTo(x + radius, y + height);
+  ctx.quadraticCurveTo(x, y + height, x, y + height - radius);
+  ctx.lineTo(x, y + radius);
+  ctx.quadraticCurveTo(x, y, x + radius, y);
+  ctx.closePath();
+}
+
+window.Sproutworks.machines = {
+  canAfford,
+  canPlaceBuildable,
+  demolishBuildableAt,
+  harvestResourceAt,
+  refundAllBuildings,
+  drawHarvestAnimation,
+  drawMovePreview,
+  drawBuildPreview,
+  drawDemolishPreview,
+  drawMachines,
+  getWarehouseInputTile,
+  handleMoveToolAt,
+  mirrorBuildMode,
+  rotateBuildMode,
+  tryPlaceBuildable,
+  updateMachines,
+  updateHarvestAnimation,
+};
+})();

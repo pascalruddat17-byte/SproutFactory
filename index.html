@@ -1,0 +1,201 @@
+<!doctype html>
+<html lang="de">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <title>Sproutworks</title>
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <main id="app" aria-label="Sproutworks Spielprototyp">
+      <canvas id="gameCanvas"></canvas>
+
+      <section id="logoScreen" class="logo-screen" aria-label="Sproutworks Startlogo">
+        <div class="logo-glow"></div>
+        <div class="gear-door gear-left" aria-hidden="true"></div>
+        <div class="gear-door gear-right" aria-hidden="true"></div>
+        <img class="logo-art" src="./assets/cozy-factory-logo.png" alt="Cozy Factory Logo" />
+      </section>
+
+      <div class="hud">
+        <button id="shopButton" class="hud-button" type="button" aria-label="Shop oeffnen">
+          <span class="button-icon">+</span>
+          <span>Shop</span>
+        </button>
+        <section id="resourceBar" class="resource-bar" aria-label="Ressourcen">
+          <div class="resource-counter currency-counter" data-resource="coin">
+            <span class="resource-icon coin-icon" aria-hidden="true"></span>
+            <span class="resource-name">Coin</span>
+            <strong>100</strong>
+          </div>
+          <div class="resource-counter" data-resource="stone">
+            <span class="resource-icon stone-icon" aria-hidden="true"></span>
+            <span class="resource-name">Stein</span>
+            <strong>120/500</strong>
+          </div>
+          <div class="resource-counter" data-resource="iron">
+            <span class="resource-icon iron-icon" aria-hidden="true"></span>
+            <span class="resource-name">Eisen</span>
+            <strong>110/500</strong>
+          </div>
+          <div class="resource-counter" data-resource="wood">
+            <span class="resource-icon wood-icon" aria-hidden="true"></span>
+            <span class="resource-name">Holz</span>
+            <strong>180/500</strong>
+          </div>
+        </section>
+        <button id="menuButton" class="hud-button icon-only" type="button" aria-label="Menue oeffnen">
+          <span></span>
+          <span></span>
+          <span></span>
+        </button>
+      </div>
+
+      <aside id="menuPanel" class="panel menu-panel" aria-label="Spielmenue" hidden>
+        <div class="panel-title">
+          <h2>Menue</h2>
+          <button id="closeMenuButton" class="mini-button" type="button" aria-label="Menue schliessen">x</button>
+        </div>
+        <label class="control-switch">
+          <span>PC-Steuerung</span>
+          <input id="controlModeToggle" type="checkbox" />
+          <span>Handy</span>
+        </label>
+        <button id="reloadMapButton" class="reload-map-button" type="button">Neue Map laden · 500 Coin</button>
+        <button id="resetGameButton" class="reset-game-button" type="button">Fortschritt zuruecksetzen</button>
+        <div class="code-section">
+          <label for="codeInput">Code eingeben</label>
+          <div class="code-row">
+            <input id="codeInput" type="text" autocomplete="off" placeholder="Code" />
+            <button id="codeButton" class="mini-button" type="button">Einloesen</button>
+          </div>
+          <p id="codeMessage" class="code-message" aria-live="polite"></p>
+        </div>
+      </aside>
+
+      <aside id="shopPanel" class="panel shop-panel" aria-label="Shop" hidden>
+        <div class="panel-title">
+          <h2>Shop</h2>
+          <button id="closeShopButton" class="mini-button" type="button" aria-label="Shop schliessen">x</button>
+        </div>
+        <p>Hier kommen spaeter Angebote, Upgrades und besondere Teile rein.</p>
+      </aside>
+
+      <button id="buildMenuButton" class="build-menu-button" type="button" aria-label="Baumenue oeffnen">
+        <span class="build-menu-icon" aria-hidden="true"></span>
+        <span>Bauen</span>
+      </button>
+      <button id="demolishButton" class="demolish-button" type="button" aria-label="Bagger Loeschmodus">
+        <span class="demolish-icon" aria-hidden="true"></span>
+        <span>Bagger</span>
+      </button>
+      <button id="moveButton" class="move-button" type="button" aria-label="Move Tool">
+        <span class="move-icon" aria-hidden="true"></span>
+        <span>Move</span>
+      </button>
+      <button id="harvestButton" class="harvest-button" type="button" aria-label="Ressourcen abbauen">
+        <span class="harvest-icon" aria-hidden="true"></span>
+        <span>Abbauen</span>
+      </button>
+
+      <aside id="buildPanel" class="panel build-panel" aria-label="Baumenue" hidden>
+        <div class="panel-title">
+          <h2>Bauen</h2>
+          <button id="closeBuildButton" class="mini-button" type="button" aria-label="Baumenue schliessen">x</button>
+        </div>
+        <div class="category-tabs" role="tablist" aria-label="Baukategorien">
+          <button class="category-tab active" type="button" data-category="factories">Factories</button>
+          <button class="category-tab" type="button" data-category="transport">Transportmittel</button>
+          <button class="category-tab" type="button" data-category="decor">Deko</button>
+          <button class="category-tab" type="button" data-category="storage">Lager</button>
+        </div>
+        <div class="build-category active" data-build-category="factories">
+          <button id="buildWoodCollectorButton" class="build-card" type="button">
+            <span class="shop-card-title">Holzfabrik</span>
+            <span class="shop-card-desc">2x2-Farm, produziert Holz in Baumnaehe und legt Items aufs Band.</span>
+            <span class="shop-card-cost">20 Stein · 12 Eisen · 30 Holz</span>
+          </button>
+          <button id="buildStoneCollectorButton" class="build-card" type="button">
+            <span class="shop-card-title">Steinfabrik</span>
+            <span class="shop-card-desc">2x2-Farm, produziert Stein in Felsnaehe und legt Items aufs Band.</span>
+            <span class="shop-card-cost">30 Stein · 15 Eisen · 35 Holz</span>
+          </button>
+          <button id="buildIronCollectorButton" class="build-card" type="button">
+            <span class="shop-card-title">Metallfabrik</span>
+            <span class="shop-card-desc">2x2-Farm, produziert Eisen in Erznaehe und legt Items aufs Band.</span>
+            <span class="shop-card-cost">45 Stein · 25 Eisen · 45 Holz</span>
+          </button>
+        </div>
+        <div class="build-category" data-build-category="transport">
+          <button id="buildConveyorStraightButton" class="build-card" type="button">
+            <span class="shop-card-title">Foerderband</span>
+            <span class="shop-card-desc">Gerades Band, eine Kachel gross.</span>
+            <span class="shop-card-cost">1 Eisen · 1 Holz</span>
+          </button>
+          <button id="buildConveyorCornerButton" class="build-card" type="button">
+            <span class="shop-card-title">Eckfoerderband</span>
+            <span class="shop-card-desc">Kurve fuer Bandstrecken, eine Kachel gross.</span>
+            <span class="shop-card-cost">1 Eisen · 2 Holz</span>
+          </button>
+          <button id="buildConveyorMergerButton" class="build-card" type="button">
+            <span class="shop-card-title">Zusammenfuehrer</span>
+            <span class="shop-card-desc">T-Band, fuehrt alle drei angeschlossenen Seiten zusammen.</span>
+            <span class="shop-card-cost">3 Eisen · 4 Holz</span>
+          </button>
+          <button id="buildConveyorSplitterButton" class="build-card" type="button">
+            <span class="shop-card-title">Splitter</span>
+            <span class="shop-card-desc">4-Wege-Teil, teilt eine Linie in drei Richtungen auf.</span>
+            <span class="shop-card-cost">3 Eisen · 4 Holz</span>
+          </button>
+        </div>
+        <div class="build-category" data-build-category="decor">
+          <p>Deko kommt spaeter.</p>
+        </div>
+        <div class="build-category" data-build-category="storage">
+          <button id="buildStorageUnitButton" class="build-card" type="button">
+            <span class="shop-card-title">Lagerbauteil</span>
+            <span class="shop-card-desc">3x2-Lager mit Eingang und Ausgang fuer Foerderbaender.</span>
+            <span class="shop-card-cost">25 Coin · 55 Stein · 30 Eisen · 60 Holz</span>
+          </button>
+        </div>
+      </aside>
+
+      <aside id="warehousePanel" class="panel warehouse-panel" aria-label="Lager" hidden>
+        <div class="panel-title">
+          <h2>Lager</h2>
+          <button id="closeWarehouseButton" class="mini-button" type="button" aria-label="Lager schliessen">x</button>
+        </div>
+        <p>Kapazitaet: <strong>500</strong> pro Ressource</p>
+        <div class="upgrade-card">
+          <h3>Lager Upgrade</h3>
+          <button id="upgradeWarehouseButton" class="upgrade-button" type="button">Upgrade</button>
+          <div class="requirements" aria-label="Benoetigte Ressourcen">
+            <span>250 Holz</span>
+            <span>150 Stein</span>
+            <span>75 Eisen</span>
+            <span>50 Coin</span>
+          </div>
+        </div>
+      </aside>
+
+      <div id="buildHint" class="build-hint" hidden>Bauen: Klicken zum Platzieren · R zum Drehen</div>
+      <div id="buildTray" class="build-tray" hidden>
+        <button id="rotateBuildButton" class="tray-button" type="button">Drehen</button>
+        <button id="mirrorBuildButton" class="tray-button" type="button">Spiegeln</button>
+        <button id="cancelBuildButton" class="tray-button cancel" type="button">Abbrechen</button>
+      </div>
+      <div id="touchHint" class="touch-hint" hidden>Wischen zum Fliegen, zwei Finger zum Zoomen</div>
+      <div id="mapLoadingScreen" class="map-loading-screen" hidden>
+        <div class="loading-gear" aria-hidden="true"></div>
+        <h2>Neue Map wird geladen</h2>
+        <p>Natur, Erzstellen und freie Bauflächen werden vorbereitet ...</p>
+      </div>
+    </main>
+    <script src="./src/config.js"></script>
+    <script src="./src/state.js"></script>
+    <script src="./src/world.js"></script>
+    <script src="./src/machines.js"></script>
+    <script src="./src/ui.js"></script>
+    <script src="./src/game.js"></script>
+  </body>
+</html>
