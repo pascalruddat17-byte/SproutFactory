@@ -1,0 +1,19 @@
+{
+  "name": "Sproutworks",
+  "short_name": "Sproutworks",
+  "description": "Ein cozy 2D Factory-Game-Prototyp.",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#8dce6d",
+  "theme_color": "#8dce6d",
+  "icons": [
+    {
+      "src": "./assets/cozy-factory-logo.png",
+      "sizes": "any",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}
