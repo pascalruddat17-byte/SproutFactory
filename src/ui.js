@@ -875,7 +875,7 @@ function getMachineNote(machine) {
   if (machine.type === "conveyorConditional") return "Dieses Band laesst Items nur rein, wenn dahinter noch Lagerplatz erreichbar ist. Rot bedeutet: Ziel voll.";
   if (machine.type === "conveyorOverflow") return "Umgedrehtes Bedingungsband: Es laesst ein Item nur durch, wenn genau dieses Material im Ziellager voll ist.";
   if (machine.type === "conveyorFilter") return "Dieses Band blockt alle Items ausser der ausgewaehlten Ressource.";
-  if (machine.type === "conveyorPriority2") return "Prioritaetsband: links zuerst, sonst rechts, wenn links blockiert ist.";
+  if (machine.type === "conveyorPriority2") return "Prioritaetsband: Seite zuerst, sonst vorne. Spiegeln wechselt zwischen rechts und links.";
   if (machine.type === "conveyorPriority3") return "Prioritaetsband: links, rechts, geradeaus. Es nimmt den ersten freien Weg.";
   if (window.Sproutworks.machines.canUpgradeConveyorLanes(machine)) return "Dieses Band kann auf bis zu 3 Spuren verbessert werden. Items fahren dann kleiner nebeneinander.";
   if (machine.type === "trashCan") return "Zeigt ein Foerderband auf den Muelleimer, wird das Item dort geloescht.";
