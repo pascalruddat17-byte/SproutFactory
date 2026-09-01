@@ -133,6 +133,22 @@ function tryPlaceBuildable(type, worldX, worldY) {
   return true;
 }
 
+function getPlacementErrorMessage(type, worldX, worldY) {
+  const machineConfig = CONFIG.machines[type];
+  if (!machineConfig) return "Dieses Teil gibt es noch nicht.";
+  if (!canAfford(machineConfig.cost)) return "Nicht genug Material.";
+
+  const placement = canPlaceBuildable(type, worldX, worldY);
+  return {
+    "outside-map": "Das ist ausserhalb der Map.",
+    warehouse: "Das Lager und seine Einfahrt muessen frei bleiben.",
+    occupied: "Da steht schon etwas.",
+    obstacle: "Baeume, Steine und Erze blockieren diese Kachel.",
+    "port-blocked": "Ein- und Ausgang vom Lager brauchen freie Kacheln.",
+    "no-source": "Diese Fabrik muss nah an der passenden Ressource stehen.",
+  }[placement.reason] ?? "Hier kannst du das nicht platzieren.";
+}
+
 function demolishBuildableAt(worldX, worldY) {
   const tile = worldToTile(worldX, worldY);
   const machine = getMachineAtTile(tile.tileX, tile.tileY);
@@ -165,6 +181,7 @@ function harvestResourceAt(worldX, worldY) {
   state.resources[target.resource] = Math.min(CONFIG.storage.resourceMax, current + 1);
   state.harvestCooldown = 1;
   state.harvestAnimation = { resource: target.resource, x: target.node.x, y: target.node.y, time: 0 };
+  addFloatingResourceText(target.resource, target.node.x, target.node.y - 44);
   window.Sproutworks.save?.markSaveDirty();
   return true;
 }
@@ -1034,6 +1051,7 @@ function removeItemsAffectedByMove(oldMachine, newMachine) {
 
 function deliverResourceItem(item) {
   state.resources[item.type] = Math.min(CONFIG.storage.resourceMax, (state.resources[item.type] ?? 0) + 1);
+  addFloatingResourceText(item.type, item.x, item.y - 26);
 }
 
 function canStoreResource(resource) {
@@ -1084,6 +1102,26 @@ function drawItems(ctx) {
     ctx.stroke();
     ctx.restore();
   });
+}
+
+function addFloatingResourceText(resource, x, y) {
+  state.effects.push({
+    type: "resourceText",
+    resource,
+    text: `+1 ${getResourceLabel(resource)}`,
+    x,
+    y,
+    time: 0,
+    duration: 0.85,
+  });
+}
+
+function getResourceLabel(resource) {
+  return {
+    wood: "Holz",
+    stone: "Stein",
+    iron: "Eisen",
+  }[resource] ?? resource;
 }
 
 function drawWoodCollector(ctx, machine, time) {
@@ -1485,6 +1523,7 @@ window.Sproutworks.machines = {
   canAfford,
   canPlaceBuildable,
   demolishBuildableAt,
+  getPlacementErrorMessage,
   harvestResourceAt,
   refundAllBuildings,
   drawHarvestAnimation,

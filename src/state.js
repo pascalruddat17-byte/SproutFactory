@@ -8,6 +8,7 @@ const state = {
   resources: { ...CONFIG.resources },
   machines: [],
   items: [],
+  effects: [],
   buildMode: null,
   demolishMode: false,
   moveMode: false,
@@ -69,6 +70,7 @@ function loadGame() {
     };
     state.machines = Array.isArray(saveData.machines) ? saveData.machines.map(sanitizeMachine).filter(Boolean) : [];
     state.items = [];
+    state.effects = [];
     state.buildMode = null;
     state.demolishMode = false;
     state.moveMode = false;
@@ -94,6 +96,7 @@ function resetGame() {
   state.resources = { ...CONFIG.resources };
   state.machines = [];
   state.items = [];
+  state.effects = [];
   state.buildMode = null;
   state.demolishMode = false;
   state.moveMode = false;

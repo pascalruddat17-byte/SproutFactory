@@ -1,7 +1,7 @@
 (() => {
 const { CONFIG } = window.Sproutworks;
 const { drawWorld, isPointInWarehouse } = window.Sproutworks.world;
-const { demolishBuildableAt, drawBuildPreview, drawDemolishPreview, drawHarvestAnimation, drawMovePreview, handleMoveToolAt, harvestResourceAt, tryPlaceBuildable, updateHarvestAnimation, updateMachines } = window.Sproutworks.machines;
+const { demolishBuildableAt, drawBuildPreview, drawDemolishPreview, drawHarvestAnimation, drawMovePreview, getPlacementErrorMessage, handleMoveToolAt, harvestResourceAt, tryPlaceBuildable, updateHarvestAnimation, updateMachines } = window.Sproutworks.machines;
 const { createInput, setupUi, showToast, showWarehousePanel, setBuildHintVisible, updateFactoryStatus, updateResourceCounters } = window.Sproutworks.ui;
 const { state } = window.Sproutworks;
 const { saveGame } = window.Sproutworks.save;
@@ -39,6 +39,7 @@ function tick(now) {
   updatePointerWorld();
   updateMachines(delta);
   updateHarvestAnimation(delta);
+  updateEffects(delta);
   state.harvestCooldown = Math.max(0, state.harvestCooldown - delta);
   handleClicks();
   autoSave(now);
@@ -85,6 +86,7 @@ function draw(time) {
   ctx.clearRect(0, 0, width, height);
   drawWorld(ctx, camera, time);
   drawHarvestAnimation(ctx, camera);
+  drawEffects(ctx, camera);
   drawBuildPreview(ctx, camera, input.pointerWorld, time);
   drawDemolishPreview(ctx, camera, input.pointerWorld);
   drawMovePreview(ctx, camera, input.pointerWorld, time);
@@ -141,7 +143,7 @@ function handleClicks() {
       if (tryPlaceBuildable(state.buildMode, worldX, worldY)) {
         setBuildHintVisible(Boolean(state.buildMode));
       } else {
-        showToast("Hier kannst du das nicht platzieren.");
+        showToast(getPlacementErrorMessage(state.buildMode, worldX, worldY));
       }
       return;
     }
@@ -178,6 +180,36 @@ function updatePointerWorld() {
 
 function clamp(value, min, max) {
   return Math.max(min, Math.min(max, value));
+}
+
+function updateEffects(delta) {
+  state.effects = state.effects.filter((effect) => {
+    effect.time += delta;
+    return effect.time < effect.duration;
+  });
+}
+
+function drawEffects(ctx, camera) {
+  if (state.effects.length === 0) return;
+
+  ctx.save();
+  ctx.scale(camera.zoom, camera.zoom);
+  ctx.translate(-camera.x, -camera.y);
+  state.effects.forEach((effect) => {
+    if (effect.type !== "resourceText") return;
+    const progress = effect.time / effect.duration;
+    const y = effect.y - progress * 34;
+    ctx.globalAlpha = 1 - progress;
+    ctx.fillStyle = "#fff7df";
+    ctx.strokeStyle = effect.resource === "iron" ? "#516368" : effect.resource === "stone" ? "#6f766e" : "#744424";
+    ctx.lineWidth = 5;
+    ctx.font = "900 22px Trebuchet MS, sans-serif";
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    ctx.strokeText(effect.text, effect.x, y);
+    ctx.fillText(effect.text, effect.x, y);
+  });
+  ctx.restore();
 }
 
 function drawMinimap() {
