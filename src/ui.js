@@ -851,8 +851,8 @@ function getMachineNote(machine) {
   if (machine.type === "conveyorConditional") return "Dieses Band laesst Items nur rein, wenn dahinter noch Lagerplatz erreichbar ist. Rot bedeutet: Ziel voll.";
   if (machine.type === "conveyorOverflow") return "Dieses Band laesst Items nur durch, wenn das Ziel-Lager voll ist.";
   if (machine.type === "conveyorFilter") return "Dieses Band blockt alle Items ausser der ausgewaehlten Ressource.";
-  if (machine.type === "conveyorPriority2") return "Prioritaetsband: links zuerst, sonst geradeaus, wenn links blockiert ist.";
-  if (machine.type === "conveyorPriority3") return "Prioritaetsband: links, geradeaus, rechts. Es nimmt den ersten freien Weg.";
+  if (machine.type === "conveyorPriority2") return "Prioritaetsband: links zuerst, sonst rechts, wenn links blockiert ist.";
+  if (machine.type === "conveyorPriority3") return "Prioritaetsband: links, rechts, geradeaus. Es nimmt den ersten freien Weg.";
   if (machine.type === "trashCan") return "Zeigt ein Foerderband auf den Muelleimer, wird das Item dort geloescht.";
   if (machine.type?.startsWith("conveyor")) return "Items folgen bei jedem Band neu der Richtung dieses Teils.";
   return "Diese Maschine produziert automatisch, wenn Quelle und Foerderband passen.";

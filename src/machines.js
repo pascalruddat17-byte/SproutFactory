@@ -747,8 +747,8 @@ function getConveyorOutputs(conveyor) {
   if (conveyor.type === "conveyorCorner") return [rotateDir(1, rotation)];
   if (conveyor.type === "conveyorMerger") return [rotateDir(1, rotation)];
   if (conveyor.type === "conveyorSplitter") return rotateDirs([1, 0, 2], rotation);
-  if (conveyor.type === "conveyorPriority2") return rotateDirs([0, 1], rotation);
-  if (conveyor.type === "conveyorPriority3") return rotateDirs([0, 1, 2], rotation);
+  if (conveyor.type === "conveyorPriority2") return rotateDirs([0, 2], rotation);
+  if (conveyor.type === "conveyorPriority3") return rotateDirs([0, 2, 1], rotation);
   return [];
 }
 
@@ -1766,10 +1766,10 @@ function drawConveyor(ctx, conveyor, time) {
     ctx.lineTo(0, 0);
     ctx.lineTo(0, -size / 2 + 10);
     ctx.moveTo(0, 0);
-    ctx.lineTo(size / 2 - 10, 0);
+    ctx.lineTo(0, size / 2 - 10);
     ctx.stroke();
     drawArrowHead(ctx, 0, -size / 2 + 10, -Math.PI / 2);
-    drawArrowHead(ctx, size / 2 - 9, 0, 0);
+    drawArrowHead(ctx, 0, size / 2 - 10, Math.PI / 2);
   } else if (conveyor.type === "conveyorPriority3") {
     ctx.moveTo(-size / 2 + 10, 0);
     ctx.lineTo(0, 0);
