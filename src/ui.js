@@ -557,6 +557,8 @@ function setupUi(input) {
     state.buildMirrored = false;
     demolishButton.classList.remove("active");
     moveButton.classList.remove("active");
+    machineInfoPanel.hidden = true;
+    warehousePanel.hidden = true;
     buildPanel.hidden = true;
     setBuildHintVisible(true);
   }

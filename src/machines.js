@@ -1298,6 +1298,7 @@ function drawWoodCollector(ctx, machine, time) {
   ctx.lineTo(size + 4, 2);
   ctx.stroke();
 
+  drawFactoryStatusBadge(ctx, machine);
   ctx.restore();
 }
 
@@ -1347,6 +1348,7 @@ function drawStoneCollector(ctx, machine, time) {
   ctx.ellipse(-41, 24, 5, 3, -0.2, 0, Math.PI * 2);
   ctx.fill();
 
+  drawFactoryStatusBadge(ctx, machine);
   ctx.restore();
 }
 
@@ -1407,6 +1409,51 @@ function drawIronCollector(ctx, machine, time) {
   ctx.ellipse(-43, 26, 5, 3, -0.25, 0, Math.PI * 2);
   ctx.fill();
 
+  drawFactoryStatusBadge(ctx, machine);
+  ctx.restore();
+}
+
+function drawFactoryStatusBadge(ctx, machine) {
+  const productionConfig = getProductionConfig(machine);
+  if (!productionConfig) return;
+
+  const progress = productionConfig.productionSeconds
+    ? Math.min(1, (machine.productionTimer ?? 0) / productionConfig.productionSeconds)
+    : 0;
+  const statusText = {
+    working: "LAEUFT",
+    blocked: "STAU",
+    "no-source": "QUELLE",
+    "no-output": "BAND",
+  }[machine.status] ?? "WARTET";
+  const color = {
+    working: "#4f9f43",
+    blocked: "#d85f45",
+    "no-source": "#d9893d",
+    "no-output": "#d9893d",
+  }[machine.status] ?? "#929b96";
+
+  ctx.save();
+  ctx.translate(0, -70);
+  ctx.fillStyle = "rgba(255, 247, 223, 0.92)";
+  roundedRect(ctx, -44, -13, 88, 26, 7);
+  ctx.fill();
+  ctx.strokeStyle = "#4d6f3b";
+  ctx.lineWidth = 3;
+  ctx.stroke();
+
+  ctx.fillStyle = "rgba(45, 53, 38, 0.18)";
+  roundedRect(ctx, -35, 4, 70, 6, 3);
+  ctx.fill();
+  ctx.fillStyle = color;
+  roundedRect(ctx, -35, 4, 70 * (machine.status === "working" ? progress : 1), 6, 3);
+  ctx.fill();
+
+  ctx.fillStyle = color;
+  ctx.font = "900 11px Trebuchet MS, sans-serif";
+  ctx.textAlign = "center";
+  ctx.textBaseline = "middle";
+  ctx.fillText(statusText, 0, -4);
   ctx.restore();
 }
 
