@@ -719,6 +719,23 @@ button {
   color: #7d4b25;
 }
 
+.build-card-status {
+  justify-self: start;
+  padding: 5px 8px;
+  color: #fff8dd;
+  background: #4f9f43;
+  border: 2px solid #2f6f3b;
+  border-radius: 7px;
+  font-size: 12px;
+  font-weight: 900;
+}
+
+.build-card.unavailable .build-card-status {
+  color: #fff8dd;
+  background: #b64b3d;
+  border-color: #763127;
+}
+
 .warehouse-panel {
   left: 50%;
   top: 86px;

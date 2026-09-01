@@ -60,6 +60,18 @@ function createInput() {
       return;
     }
 
+    const actionButton = {
+      KeyB: "#buildMenuButton",
+      KeyX: "#demolishButton",
+      KeyM: "#moveButton",
+      KeyH: "#harvestButton",
+    }[event.code];
+    if (actionButton) {
+      event.preventDefault();
+      document.querySelector(actionButton)?.click();
+      return;
+    }
+
     const direction = keyMap[event.code];
     if (!direction) return;
     event.preventDefault();
@@ -519,7 +531,7 @@ function setupUi(input) {
 
   function startBuildMode(type) {
     if (!window.Sproutworks.machines.canAfford(CONFIG.machines[type].cost)) {
-      showToast(`Nicht genug Material fuer ${getBuildName(type)}.`);
+      showToast(`Fehlt: ${getMissingCostText(CONFIG.machines[type].cost)}.`);
       refreshBuildCards();
       return;
     }
@@ -540,7 +552,17 @@ function setupUi(input) {
   function refreshBuildCards() {
     buildButtons.forEach(([button, type]) => {
       if (!button) return;
-      button.classList.toggle("unavailable", !window.Sproutworks.machines.canAfford(CONFIG.machines[type].cost));
+      const cost = CONFIG.machines[type].cost;
+      const missingText = getMissingCostText(cost);
+      const canBuild = missingText === "";
+      button.classList.toggle("unavailable", !canBuild);
+      let status = button.querySelector(".build-card-status");
+      if (!status) {
+        status = document.createElement("span");
+        status.className = "build-card-status";
+        button.appendChild(status);
+      }
+      status.textContent = canBuild ? "Baubar" : `Fehlt: ${missingText}`;
     });
   }
 
@@ -618,6 +640,14 @@ function getBuildName(type) {
     conveyorFilter: "Filterfoerderband",
     storageUnit: "Lagerbauteil",
   }[type] ?? "dieses Teil";
+}
+
+function getMissingCostText(cost) {
+  const { state } = window.Sproutworks;
+  const missing = Object.entries(cost ?? {})
+    .map(([resource, amount]) => [resource, amount - (state.resources[resource] ?? 0)])
+    .filter(([, amount]) => amount > 0);
+  return missing.map(([resource, amount]) => `${amount} ${getResourceLabel(resource)}`).join(" · ");
 }
 
 function updateResourceCounters(resourceBar, resources) {
