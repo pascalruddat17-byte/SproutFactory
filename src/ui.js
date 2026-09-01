@@ -126,6 +126,8 @@ function setupUi(input) {
   const buildConveyorCornerButton = document.querySelector("#buildConveyorCornerButton");
   const buildConveyorMergerButton = document.querySelector("#buildConveyorMergerButton");
   const buildConveyorSplitterButton = document.querySelector("#buildConveyorSplitterButton");
+  const buildConveyorPriority2Button = document.querySelector("#buildConveyorPriority2Button");
+  const buildConveyorPriority3Button = document.querySelector("#buildConveyorPriority3Button");
   const buildConveyorConditionalButton = document.querySelector("#buildConveyorConditionalButton");
   const buildConveyorOverflowButton = document.querySelector("#buildConveyorOverflowButton");
   const buildConveyorFilterButton = document.querySelector("#buildConveyorFilterButton");
@@ -163,6 +165,8 @@ function setupUi(input) {
     [buildConveyorCornerButton, "conveyorCorner"],
     [buildConveyorMergerButton, "conveyorMerger"],
     [buildConveyorSplitterButton, "conveyorSplitter"],
+    [buildConveyorPriority2Button, "conveyorPriority2"],
+    [buildConveyorPriority3Button, "conveyorPriority3"],
     [buildConveyorConditionalButton, "conveyorConditional"],
     [buildConveyorOverflowButton, "conveyorOverflow"],
     [buildConveyorFilterButton, "conveyorFilter"],
@@ -447,6 +451,14 @@ function setupUi(input) {
     startBuildMode("conveyorSplitter");
   });
 
+  buildConveyorPriority2Button.addEventListener("click", () => {
+    startBuildMode("conveyorPriority2");
+  });
+
+  buildConveyorPriority3Button.addEventListener("click", () => {
+    startBuildMode("conveyorPriority3");
+  });
+
   buildConveyorConditionalButton.addEventListener("click", () => {
     startBuildMode("conveyorConditional");
   });
@@ -691,6 +703,8 @@ function getBuildName(type) {
     conveyorCorner: "Eckfoerderband",
     conveyorMerger: "Zusammenfuehrer",
     conveyorSplitter: "Splitter",
+    conveyorPriority2: "2-Wege-Prioritaet",
+    conveyorPriority3: "3-Wege-Prioritaet",
     conveyorConditional: "Bedingungsfoerderband",
     conveyorOverflow: "Ueberlauf-Band",
     conveyorFilter: "Filterfoerderband",
@@ -824,6 +838,8 @@ function getMachineNote(machine) {
   if (machine.type === "conveyorConditional") return "Dieses Band laesst Items nur rein, wenn dahinter noch Lagerplatz erreichbar ist. Rot bedeutet: Ziel voll.";
   if (machine.type === "conveyorOverflow") return "Dieses Band laesst Items nur durch, wenn das Ziel-Lager voll ist.";
   if (machine.type === "conveyorFilter") return "Dieses Band blockt alle Items ausser der ausgewaehlten Ressource.";
+  if (machine.type === "conveyorPriority2") return "Prioritaetsband: links zuerst, sonst geradeaus, wenn links blockiert ist.";
+  if (machine.type === "conveyorPriority3") return "Prioritaetsband: links, geradeaus, rechts. Es nimmt den ersten freien Weg.";
   if (machine.type === "trashCan") return "Zeigt ein Foerderband auf den Muelleimer, wird das Item dort geloescht.";
   if (machine.type?.startsWith("conveyor")) return "Items folgen bei jedem Band neu der Richtung dieses Teils.";
   return "Diese Maschine produziert automatisch, wenn Quelle und Foerderband passen.";

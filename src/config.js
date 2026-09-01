@@ -100,6 +100,18 @@ window.Sproutworks.CONFIG = {
         wood: 4,
       },
     },
+    conveyorPriority2: {
+      cost: {
+        iron: 4,
+        wood: 4,
+      },
+    },
+    conveyorPriority3: {
+      cost: {
+        iron: 5,
+        wood: 5,
+      },
+    },
     conveyorConditional: {
       cost: {
         iron: 4,

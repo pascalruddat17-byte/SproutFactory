@@ -172,6 +172,8 @@ function getBuildName(type) {
     conveyorCorner: "Eckfoerderband",
     conveyorMerger: "Zusammenfuehrer",
     conveyorSplitter: "Splitter",
+    conveyorPriority2: "2-Wege-Prioritaet",
+    conveyorPriority3: "3-Wege-Prioritaet",
     conveyorConditional: "Bedingungsband",
     conveyorOverflow: "Ueberlauf-Band",
     conveyorFilter: "Filterband",
@@ -731,6 +733,8 @@ function getConveyorInputs(conveyor) {
   if (conveyor.type === "conveyorCorner") return [rotateDir(conveyor.mirrored ? 2 : 0, rotation)];
   if (conveyor.type === "conveyorMerger") return rotateDirs([3, 0, 2], rotation);
   if (conveyor.type === "conveyorSplitter") return [rotateDir(3, rotation)];
+  if (conveyor.type === "conveyorPriority2") return [rotateDir(3, rotation)];
+  if (conveyor.type === "conveyorPriority3") return [rotateDir(3, rotation)];
   return [];
 }
 
@@ -743,6 +747,8 @@ function getConveyorOutputs(conveyor) {
   if (conveyor.type === "conveyorCorner") return [rotateDir(1, rotation)];
   if (conveyor.type === "conveyorMerger") return [rotateDir(1, rotation)];
   if (conveyor.type === "conveyorSplitter") return rotateDirs([1, 0, 2], rotation);
+  if (conveyor.type === "conveyorPriority2") return rotateDirs([0, 1], rotation);
+  if (conveyor.type === "conveyorPriority3") return rotateDirs([0, 1, 2], rotation);
   return [];
 }
 
@@ -751,7 +757,7 @@ function isConveyor(machine) {
 }
 
 function isConveyorType(type) {
-  return type === "conveyorStraight" || type === "conveyorCorner" || type === "conveyorMerger" || type === "conveyorSplitter" || type === "conveyorConditional" || type === "conveyorOverflow" || type === "conveyorFilter";
+  return type === "conveyorStraight" || type === "conveyorCorner" || type === "conveyorMerger" || type === "conveyorSplitter" || type === "conveyorPriority2" || type === "conveyorPriority3" || type === "conveyorConditional" || type === "conveyorOverflow" || type === "conveyorFilter";
 }
 
 function oppositeDir(dirIndex) {
@@ -926,11 +932,12 @@ function updateItems(delta) {
   removeDuplicateWaitingItems();
   const occupiedTiles = buildItemTileOccupancy();
 
-  for (let i = state.items.length - 1; i >= 0; i -= 1) {
+  for (let i = 0; i < state.items.length; i += 1) {
     const item = state.items[i];
     if (!isItemRouteStillValid(item)) {
       releaseItemTile(item, occupiedTiles);
       state.items.splice(i, 1);
+      i -= 1;
       continue;
     }
 
@@ -984,12 +991,14 @@ function updateItems(delta) {
       window.Sproutworks.save?.markSaveDirty();
       releaseItemTile(item, occupiedTiles);
       state.items.splice(i, 1);
+      i -= 1;
       continue;
     }
 
     if (removeItem) {
       releaseItemTile(item, occupiedTiles);
       state.items.splice(i, 1);
+      i -= 1;
       continue;
     }
 
@@ -1000,17 +1009,20 @@ function updateItems(delta) {
         window.Sproutworks.save?.markSaveDirty();
         releaseItemTile(item, occupiedTiles);
         state.items.splice(i, 1);
+        i -= 1;
         continue;
       }
       if (nextStep === "stored") {
         window.Sproutworks.save?.markSaveDirty();
         releaseItemTile(item, occupiedTiles);
         state.items.splice(i, 1);
+        i -= 1;
         continue;
       }
       if (nextStep === "trash") {
         releaseItemTile(item, occupiedTiles);
         state.items.splice(i, 1);
+        i -= 1;
         continue;
       }
       if (nextStep === "wait") {
@@ -1020,6 +1032,7 @@ function updateItems(delta) {
       if (nextStep !== "continue") {
         releaseItemTile(item, occupiedTiles);
         state.items.splice(i, 1);
+        i -= 1;
         continue;
       }
     }
@@ -1114,9 +1127,11 @@ function updateItemRouteAtConveyor(item, occupiedTiles = buildItemTileOccupancy(
   const usableCandidates = forwardCandidates.length > 0 ? forwardCandidates : candidates;
   if (usableCandidates.length === 0) return "wait";
 
-  conveyor.routeIndex = (conveyor.routeIndex ?? 0) % usableCandidates.length;
-  const next = usableCandidates[conveyor.routeIndex];
-  conveyor.routeIndex = (conveyor.routeIndex + 1) % usableCandidates.length;
+  const isPriorityConveyor = conveyor.type === "conveyorPriority2" || conveyor.type === "conveyorPriority3";
+  const next = isPriorityConveyor
+    ? usableCandidates[0]
+    : usableCandidates[(conveyor.routeIndex ?? 0) % usableCandidates.length];
+  if (!isPriorityConveyor) conveyor.routeIndex = ((conveyor.routeIndex ?? 0) + 1) % usableCandidates.length;
   countGatePass(next.conveyor);
   if (next.conveyor.type === "conveyorMerger") noteMergerAccepted(next.conveyor, next.inputDirection);
 
@@ -1237,9 +1252,7 @@ function removeItemsTouchingMachine(machine) {
   const removedTiles = new Set(getFootprintTiles(machine.tileX, machine.tileY, footprint).map((tile) => tileKey(tile.tileX, tile.tileY)));
   state.items = state.items.filter((item) => {
     const currentKey = item.currentTile ? tileKey(item.currentTile.tileX, item.currentTile.tileY) : "";
-    const actualTile = worldToTile(item.x, item.y);
-    const actualKey = tileKey(actualTile.tileX, actualTile.tileY);
-    return !removedTiles.has(currentKey) && !removedTiles.has(actualKey);
+    return !removedTiles.has(currentKey);
   });
 }
 
@@ -1250,9 +1263,7 @@ function removeItemsAffectedByMove(oldMachine, newMachine) {
 
   state.items = state.items.filter((item) => {
     const currentKey = item.currentTile ? tileKey(item.currentTile.tileX, item.currentTile.tileY) : "";
-    const actualTile = worldToTile(item.x, item.y);
-    const actualKey = tileKey(actualTile.tileX, actualTile.tileY);
-    return !blockedTiles.has(currentKey) && !blockedTiles.has(actualKey);
+    return !blockedTiles.has(currentKey);
   });
 }
 
@@ -1750,6 +1761,27 @@ function drawConveyor(ctx, conveyor, time) {
     ctx.quadraticCurveTo(0, 0, size / 2 - 10, 0);
     ctx.stroke();
     drawArrowHead(ctx, size / 2 - 9, 0, 0);
+  } else if (conveyor.type === "conveyorPriority2") {
+    ctx.moveTo(-size / 2 + 10, 0);
+    ctx.lineTo(0, 0);
+    ctx.lineTo(0, -size / 2 + 10);
+    ctx.moveTo(0, 0);
+    ctx.lineTo(size / 2 - 10, 0);
+    ctx.stroke();
+    drawArrowHead(ctx, 0, -size / 2 + 10, -Math.PI / 2);
+    drawArrowHead(ctx, size / 2 - 9, 0, 0);
+  } else if (conveyor.type === "conveyorPriority3") {
+    ctx.moveTo(-size / 2 + 10, 0);
+    ctx.lineTo(0, 0);
+    ctx.lineTo(0, -size / 2 + 10);
+    ctx.moveTo(0, 0);
+    ctx.lineTo(size / 2 - 10, 0);
+    ctx.moveTo(0, 0);
+    ctx.lineTo(0, size / 2 - 10);
+    ctx.stroke();
+    drawArrowHead(ctx, 0, -size / 2 + 10, -Math.PI / 2);
+    drawArrowHead(ctx, size / 2 - 9, 0, 0);
+    drawArrowHead(ctx, 0, size / 2 - 10, Math.PI / 2);
   } else {
     ctx.moveTo(-size / 2 + 10, 0);
     ctx.lineTo(size / 2 - 9, 0);
@@ -1759,7 +1791,7 @@ function drawConveyor(ctx, conveyor, time) {
   }
   ctx.setLineDash([]);
 
-  if (conveyor.type === "conveyorMerger" || conveyor.type === "conveyorSplitter") {
+  if (conveyor.type === "conveyorMerger" || conveyor.type === "conveyorSplitter" || conveyor.type === "conveyorPriority2" || conveyor.type === "conveyorPriority3") {
     drawConveyorJunctionMark(ctx, conveyor.type);
   }
   if (conveyor.type === "conveyorConditional" || conveyor.type === "conveyorOverflow") {
@@ -1833,6 +1865,20 @@ function drawConveyorJunctionMark(ctx, type) {
     ctx.lineTo(0, 0);
     ctx.stroke();
     drawArrowHead(ctx, 22, 0, 0);
+    return;
+  }
+
+  if (type === "conveyorPriority2" || type === "conveyorPriority3") {
+    ctx.fillStyle = "#fff7df";
+    ctx.strokeStyle = "#26383a";
+    roundedRect(ctx, -16, -16, 32, 32, 7);
+    ctx.fill();
+    ctx.stroke();
+    ctx.fillStyle = "#f0a13b";
+    ctx.font = "900 16px Trebuchet MS, sans-serif";
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    ctx.fillText(type === "conveyorPriority2" ? "2" : "3", 0, 1);
     return;
   }
 
