@@ -1243,13 +1243,7 @@ body.touch-mode .tray-button.confirm {
   }
 
   .touch-hint {
-    left: 50%;
-    right: auto;
-    top: calc(max(10px, env(safe-area-inset-top)) + 54px);
-    max-width: calc(100vw - 184px);
-    padding: 7px 9px;
-    font-size: 11px;
-    transform: translateX(-50%);
+    display: none;
   }
 
   .build-hint {
