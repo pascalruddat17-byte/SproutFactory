@@ -890,20 +890,38 @@ function updateStorageUnits(delta) {
 
     storage.outputTimer = (storage.outputTimer ?? 0) + delta;
     while (storage.outputTimer >= CONFIG.machines.storageUnit.outputSeconds) {
-      const resource = takeStorageOutputResource(storage);
-      if (!resource) {
-        storage.outputTimer = CONFIG.machines.storageUnit.outputSeconds;
-        break;
+      const outputAmount = getConveyorLaneCapacity(output.conveyor);
+      let spawned = 0;
+      let blocked = false;
+
+      for (let i = 0; i < outputAmount; i += 1) {
+        const resource = takeStorageOutputResource(storage);
+        if (!resource) break;
+
+        if (!canSpawnItemAt(output.conveyor, resource)) {
+          storage.storage[resource] = (storage.storage[resource] ?? 0) + 1;
+          blocked = true;
+          break;
+        }
+
+        spawnStoredResourceItem(storage, output, resource);
+        spawned += 1;
       }
-      if (!canSpawnItemAt(output.conveyor, resource)) {
-        storage.storage[resource] = (storage.storage[resource] ?? 0) + 1;
+
+      if (spawned > 0) {
+        storage.outputTimer -= CONFIG.machines.storageUnit.outputSeconds;
+        window.Sproutworks.save?.markSaveDirty();
+        continue;
+      }
+
+      if (blocked) {
         storage.outputTimer = CONFIG.machines.storageUnit.outputSeconds;
         storage.status = "blocked";
         break;
       }
-      storage.outputTimer -= CONFIG.machines.storageUnit.outputSeconds;
-      spawnStoredResourceItem(storage, output, resource);
-      window.Sproutworks.save?.markSaveDirty();
+
+      storage.outputTimer = 0;
+      break;
     }
   });
 }

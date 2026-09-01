@@ -1,4 +1,4 @@
-const CACHE_NAME = "sproutworks-v32";
+const CACHE_NAME = "sproutworks-v33";
 const ASSETS = [
   "./",
   "./index.html",
