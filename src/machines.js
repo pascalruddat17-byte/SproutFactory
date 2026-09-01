@@ -1028,11 +1028,12 @@ function removeDuplicateWaitingItems() {
 
 function removeItemsTouchingMachine(machine) {
   const footprint = getFootprint(machine.type);
-  const removedTiles = getFootprintTiles(machine.tileX, machine.tileY, footprint).map((tile) => tileKey(tile.tileX, tile.tileY));
+  const removedTiles = new Set(getFootprintTiles(machine.tileX, machine.tileY, footprint).map((tile) => tileKey(tile.tileX, tile.tileY)));
   state.items = state.items.filter((item) => {
     const currentKey = item.currentTile ? tileKey(item.currentTile.tileX, item.currentTile.tileY) : "";
-    const previousKey = item.previousTile ? tileKey(item.previousTile.tileX, item.previousTile.tileY) : "";
-    return !removedTiles.includes(currentKey) && !removedTiles.includes(previousKey);
+    const actualTile = worldToTile(item.x, item.y);
+    const actualKey = tileKey(actualTile.tileX, actualTile.tileY);
+    return !removedTiles.has(currentKey) && !removedTiles.has(actualKey);
   });
 }
 
@@ -1043,9 +1044,9 @@ function removeItemsAffectedByMove(oldMachine, newMachine) {
 
   state.items = state.items.filter((item) => {
     const currentKey = item.currentTile ? tileKey(item.currentTile.tileX, item.currentTile.tileY) : "";
-    const previousKey = item.previousTile ? tileKey(item.previousTile.tileX, item.previousTile.tileY) : "";
-    if (blockedTiles.has(currentKey) || blockedTiles.has(previousKey)) return false;
-    return !item.path?.some((point) => Math.hypot(point.x - oldMachine.x, point.y - oldMachine.y) < 2);
+    const actualTile = worldToTile(item.x, item.y);
+    const actualKey = tileKey(actualTile.tileX, actualTile.tileY);
+    return !blockedTiles.has(currentKey) && !blockedTiles.has(actualKey);
   });
 }
 
