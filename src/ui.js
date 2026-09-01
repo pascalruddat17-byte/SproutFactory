@@ -806,6 +806,18 @@ function showMachineInfoPanel(machine) {
       </label>
     `
     : "";
+  const laneUpgradeConfig = CONFIG.machines.conveyorLaneUpgrade;
+  const canUpgradeLanes = window.Sproutworks.machines.canUpgradeConveyorLanes(machine);
+  const laneLevel = Math.max(1, Math.min(laneUpgradeConfig.maxLevel, Math.floor(Number(machine.laneLevel) || 1)));
+  const laneCostText = Object.entries(laneUpgradeConfig.cost).map(([resource, amount]) => `${amount} ${getResourceLabel(resource)}`).join(" · ");
+  const laneUpgradeRow = canUpgradeLanes
+    ? `
+      <div class="machine-info-row"><span>Spuren</span><strong>${laneLevel}/${laneUpgradeConfig.maxLevel}</strong></div>
+      <button id="laneUpgradeButton" class="upgrade-button lane-upgrade-button" type="button"${laneLevel >= laneUpgradeConfig.maxLevel ? " disabled" : ""}>
+        ${laneLevel >= laneUpgradeConfig.maxLevel ? "Max Spuren" : `Spur-Upgrade · ${laneCostText}`}
+      </button>
+    `
+    : "";
 
   title.textContent = getBuildName(machine.type);
   body.innerHTML = `
@@ -815,6 +827,7 @@ function showMachineInfoPanel(machine) {
     <div class="machine-info-row"><span>Baumaterial</span><strong>${costText}</strong></div>
     ${counterRow}
     ${filterRow}
+    ${laneUpgradeRow}
     ${storageRows}
     <p class="machine-info-note">${getMachineNote(machine)}</p>
   `;
@@ -824,6 +837,17 @@ function showMachineInfoPanel(machine) {
     machine.filterResource = filterSelect.value;
     window.Sproutworks.save?.markSaveDirty();
     showToast(`Filter: nur ${getResourceLabel(machine.filterResource)}.`);
+  });
+
+  const laneUpgradeButton = document.querySelector("#laneUpgradeButton");
+  laneUpgradeButton?.addEventListener("click", () => {
+    const result = window.Sproutworks.machines.upgradeConveyorLanes(machine);
+    if (result.ok) {
+      showToast(`Band jetzt ${result.level} Spuren breit.`);
+      showMachineInfoPanel(machine);
+      return;
+    }
+    showToast(result.reason === "cost" ? `Fehlt: ${getMissingCostText(laneUpgradeConfig.cost)}.` : "Dieses Band ist schon voll ausgebaut.");
   });
 
   document.querySelector("#menuPanel").hidden = true;
@@ -853,6 +877,7 @@ function getMachineNote(machine) {
   if (machine.type === "conveyorFilter") return "Dieses Band blockt alle Items ausser der ausgewaehlten Ressource.";
   if (machine.type === "conveyorPriority2") return "Prioritaetsband: links zuerst, sonst rechts, wenn links blockiert ist.";
   if (machine.type === "conveyorPriority3") return "Prioritaetsband: links, rechts, geradeaus. Es nimmt den ersten freien Weg.";
+  if (window.Sproutworks.machines.canUpgradeConveyorLanes(machine)) return "Dieses Band kann auf bis zu 3 Spuren verbessert werden. Items fahren dann kleiner nebeneinander.";
   if (machine.type === "trashCan") return "Zeigt ein Foerderband auf den Muelleimer, wird das Item dort geloescht.";
   if (machine.type?.startsWith("conveyor")) return "Items folgen bei jedem Band neu der Richtung dieses Teils.";
   return "Diese Maschine produziert automatisch, wenn Quelle und Foerderband passen.";

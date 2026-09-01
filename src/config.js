@@ -40,6 +40,13 @@ window.Sproutworks.CONFIG = {
     },
   },
   machines: {
+    conveyorLaneUpgrade: {
+      maxLevel: 3,
+      cost: {
+        iron: 12,
+        wood: 18,
+      },
+    },
     woodCollector: {
       cost: {
         stone: 20,

@@ -39,6 +39,7 @@ function createBuildable(type, tileX, tileY) {
     heightTiles: footprint.height,
     rotation: state.buildRotation,
     mirrored: state.buildMirrored,
+    laneLevel: isConveyorType(type) ? 1 : undefined,
     filterResource: type === "conveyorFilter" ? "wood" : undefined,
     passedCount: 0,
     productionTimer: 0,
@@ -315,6 +316,23 @@ function refundCost(cost) {
     }
     state.resources[resource] = Math.min(CONFIG.storage.resourceMax, state.resources[resource] + refund);
   });
+}
+
+function canUpgradeConveyorLanes(machine) {
+  return machine?.type === "conveyorStraight" || machine?.type === "conveyorCorner" || machine?.type === "conveyorMerger";
+}
+
+function upgradeConveyorLanes(machine) {
+  if (!canUpgradeConveyorLanes(machine)) return { ok: false, reason: "not-upgradable" };
+  const upgradeConfig = CONFIG.machines.conveyorLaneUpgrade;
+  const currentLevel = getConveyorLaneCapacity(machine);
+  if (currentLevel >= upgradeConfig.maxLevel) return { ok: false, reason: "max" };
+  if (!canAfford(upgradeConfig.cost)) return { ok: false, reason: "cost" };
+
+  payCost(upgradeConfig.cost);
+  machine.laneLevel = currentLevel + 1;
+  window.Sproutworks.save?.markSaveDirty();
+  return { ok: true, level: machine.laneLevel };
 }
 
 function refundAllBuildings() {
@@ -843,12 +861,15 @@ function isTrashCanTile(tileX, tileY) {
 
 function spawnResourceItem(machine, startConveyor, resource, amount) {
   for (let i = 0; i < amount; i += 1) {
+    const lane = getFirstFreeLane(startConveyor.conveyor.tileX, startConveyor.conveyor.tileY, null, buildItemTileOccupancy());
+    if (lane === -1) return;
     countGatePass(startConveyor.conveyor);
     state.items.push({
       type: resource,
       path: [pointFromMachine(machine), pointFromMachine(startConveyor.conveyor)],
       previousTile: { tileX: machine.tileX, tileY: machine.tileY },
       currentTile: { tileX: startConveyor.conveyor.tileX, tileY: startConveyor.conveyor.tileY },
+      lane,
       segment: 0,
       progress: 0,
       speed: 95,
@@ -914,12 +935,15 @@ function takeStorageOutputResource(storage) {
 
 function spawnStoredResourceItem(storage, output, resource) {
   const outputPoint = tileToWorld(output.output.tileX, output.output.tileY);
+  const lane = getFirstFreeLane(output.conveyor.tileX, output.conveyor.tileY, null, buildItemTileOccupancy());
+  if (lane === -1) return;
   countGatePass(output.conveyor);
   state.items.push({
     type: resource,
     path: [outputPoint, pointFromMachine(output.conveyor)],
     previousTile: { tileX: output.output.tileX, tileY: output.output.tileY },
     currentTile: { tileX: output.conveyor.tileX, tileY: output.conveyor.tileY },
+    lane,
     segment: 0,
     progress: 0,
     speed: 95,
@@ -1168,8 +1192,10 @@ function buildItemTileOccupancy() {
   const occupied = new Map();
   state.items.forEach((item) => {
     const key = getItemTileKey(item);
-    if (!key || occupied.has(key)) return;
-    occupied.set(key, item);
+    if (!key) return;
+    const bucket = occupied.get(key) ?? [];
+    bucket.push(item);
+    occupied.set(key, bucket);
   });
   return occupied;
 }
@@ -1181,18 +1207,61 @@ function getItemTileKey(item) {
 
 function releaseItemTile(item, occupiedTiles) {
   const key = getItemTileKey(item);
-  if (key && occupiedTiles.get(key) === item) occupiedTiles.delete(key);
+  if (!key) return;
+  const bucket = occupiedTiles.get(key);
+  if (!bucket) return;
+  const nextBucket = bucket.filter((occupant) => occupant !== item);
+  if (nextBucket.length > 0) {
+    occupiedTiles.set(key, nextBucket);
+  } else {
+    occupiedTiles.delete(key);
+  }
 }
 
 function reserveItemTile(item, oldTile, nextTile, occupiedTiles) {
   const oldKey = oldTile ? tileKey(oldTile.tileX, oldTile.tileY) : getItemTileKey(item);
-  if (oldKey && occupiedTiles.get(oldKey) === item) occupiedTiles.delete(oldKey);
-  occupiedTiles.set(tileKey(nextTile.tileX, nextTile.tileY), item);
+  if (oldKey) {
+    const oldBucket = occupiedTiles.get(oldKey);
+    if (oldBucket) {
+      const nextOldBucket = oldBucket.filter((occupant) => occupant !== item);
+      if (nextOldBucket.length > 0) {
+        occupiedTiles.set(oldKey, nextOldBucket);
+      } else {
+        occupiedTiles.delete(oldKey);
+      }
+    }
+  }
+  const nextKey = tileKey(nextTile.tileX, nextTile.tileY);
+  const nextBucket = occupiedTiles.get(nextKey) ?? [];
+  item.lane = getFirstFreeLane(nextTile.tileX, nextTile.tileY, item, occupiedTiles);
+  nextBucket.push(item);
+  occupiedTiles.set(nextKey, nextBucket);
 }
 
 function isTileAvailableForItem(tileX, tileY, item, occupiedTiles) {
-  const occupant = occupiedTiles.get(tileKey(tileX, tileY));
-  return !occupant || occupant === item;
+  return getFirstFreeLane(tileX, tileY, item, occupiedTiles) !== -1;
+}
+
+function getFirstFreeLane(tileX, tileY, item, occupiedTiles) {
+  const capacity = getTileLaneCapacity(tileX, tileY);
+  const usedLanes = new Set((occupiedTiles.get(tileKey(tileX, tileY)) ?? [])
+    .filter((occupant) => occupant !== item)
+    .map((occupant) => Math.max(0, Math.floor(Number(occupant.lane) || 0))));
+  for (let lane = 0; lane < capacity; lane += 1) {
+    if (!usedLanes.has(lane)) return lane;
+  }
+  return -1;
+}
+
+function getTileLaneCapacity(tileX, tileY) {
+  const machine = getMachineAtTile(tileX, tileY);
+  if (!machine || !isConveyor(machine)) return 1;
+  return getConveyorLaneCapacity(machine);
+}
+
+function getConveyorLaneCapacity(conveyor) {
+  if (!canUpgradeConveyorLanes(conveyor)) return 1;
+  return Math.max(1, Math.min(CONFIG.machines.conveyorLaneUpgrade.maxLevel, Math.floor(Number(conveyor.laneLevel) || 1)));
 }
 
 function canMergerAcceptInput(merger, inputDirection, item, occupiedTiles) {
@@ -1225,24 +1294,27 @@ function getMergerWaitingInputs(merger, occupiedTiles) {
     const dir = DIRS[inputDirection];
     const tileX = merger.tileX + dir.dx;
     const tileY = merger.tileY + dir.dy;
-    const item = occupiedTiles.get(tileKey(tileX, tileY));
-    if (!item || !item.currentTile) return [];
-    if (item.segment < item.path.length - 1) return [];
+    const bucket = occupiedTiles.get(tileKey(tileX, tileY)) ?? [];
 
     const source = getMachineAtTile(tileX, tileY);
     if (!source || !isConveyor(source)) return [];
     if (!getConveyorOutputs(source).includes(oppositeDir(inputDirection))) return [];
-    return [{ inputDirection, key: tileKey(tileX, tileY) }];
+    return bucket
+      .filter((item) => item.currentTile && item.segment >= item.path.length - 1)
+      .map((item) => ({ inputDirection, key: tileKey(tileX, tileY), lane: Math.max(0, Math.floor(Number(item.lane) || 0)) }));
   });
 }
 
 function removeDuplicateWaitingItems() {
-  const occupiedTiles = new Set();
+  const occupiedLanes = new Set();
   state.items = state.items.filter((item) => {
     if (!item.currentTile) return true;
-    const key = tileKey(item.currentTile.tileX, item.currentTile.tileY);
-    if (occupiedTiles.has(key)) return false;
-    occupiedTiles.add(key);
+    const capacity = getTileLaneCapacity(item.currentTile.tileX, item.currentTile.tileY);
+    const lane = Math.max(0, Math.min(capacity - 1, Math.floor(Number(item.lane) || 0)));
+    item.lane = lane;
+    const key = `${tileKey(item.currentTile.tileX, item.currentTile.tileY)}:${lane}`;
+    if (occupiedLanes.has(key)) return false;
+    occupiedLanes.add(key);
     return true;
   });
 }
@@ -1278,7 +1350,7 @@ function canStoreResource(resource) {
 
 function canSpawnItemAt(conveyor, resource = null) {
   if (resource && !canItemEnterMachineFromDirection(conveyor, getConveyorInputs(conveyor)[0], resource)) return false;
-  return !isTileOccupiedByAnyItem(conveyor.tileX, conveyor.tileY);
+  return !isTileAtLaneCapacity(conveyor.tileX, conveyor.tileY);
 }
 
 function countGatePass(conveyor) {
@@ -1286,18 +1358,33 @@ function countGatePass(conveyor) {
   conveyor.passedCount = (conveyor.passedCount ?? 0) + 1;
 }
 
-function isTileOccupiedByAnyItem(tileX, tileY, ignoredItem = null) {
-  return state.items.some((other) => (
+function isTileAtLaneCapacity(tileX, tileY, ignoredItem = null) {
+  const capacity = getTileLaneCapacity(tileX, tileY);
+  const count = state.items.filter((other) => (
     other !== ignoredItem
     && other.currentTile?.tileX === tileX
     && other.currentTile?.tileY === tileY
-  ));
+  )).length;
+  return count >= capacity;
 }
 
 function drawItems(ctx) {
   state.items.forEach((item) => {
+    const capacity = item.currentTile ? getTileLaneCapacity(item.currentTile.tileX, item.currentTile.tileY) : 1;
+    const lane = Math.max(0, Math.min(capacity - 1, Math.floor(Number(item.lane) || 0)));
+    const laneOffset = getLaneOffset(lane, capacity);
+    const from = item.path[item.segment] ?? { x: item.x - 1, y: item.y };
+    const to = item.path[item.segment + 1] ?? item.path[item.segment] ?? { x: item.x + 1, y: item.y };
+    const dx = to.x - from.x;
+    const dy = to.y - from.y;
+    const length = Math.max(1, Math.hypot(dx, dy));
+    const offsetX = (-dy / length) * laneOffset;
+    const offsetY = (dx / length) * laneOffset;
+    const itemScale = capacity > 1 ? 0.78 : 1;
+
     ctx.save();
-    ctx.translate(item.x, item.y);
+    ctx.translate(item.x + offsetX, item.y + offsetY);
+    ctx.scale(itemScale, itemScale);
     ctx.fillStyle = "rgba(39, 48, 35, 0.16)";
     ctx.beginPath();
     ctx.ellipse(0, 9, 13, 5, 0, 0, Math.PI * 2);
@@ -1320,6 +1407,12 @@ function drawItems(ctx) {
     ctx.stroke();
     ctx.restore();
   });
+}
+
+function getLaneOffset(lane, capacity) {
+  if (capacity <= 1) return 0;
+  if (capacity === 2) return lane === 0 ? -8 : 8;
+  return [-11, 0, 11][lane] ?? 0;
 }
 
 function addFloatingResourceText(resource, x, y) {
@@ -1800,8 +1893,29 @@ function drawConveyor(ctx, conveyor, time) {
   if (conveyor.type === "conveyorFilter") {
     drawFilterConveyorMark(ctx, conveyor);
   }
+  drawLaneLevelMark(ctx, conveyor);
 
   ctx.restore();
+}
+
+function drawLaneLevelMark(ctx, conveyor) {
+  if (!canUpgradeConveyorLanes(conveyor)) return;
+  const lanes = getConveyorLaneCapacity(conveyor);
+  if (lanes <= 1) return;
+
+  ctx.setLineDash([]);
+  ctx.fillStyle = "rgba(255, 247, 223, 0.92)";
+  ctx.strokeStyle = "#26383a";
+  ctx.lineWidth = 2;
+  roundedRect(ctx, -18, 16, 36, 12, 4);
+  ctx.fill();
+  ctx.stroke();
+  ctx.fillStyle = "#f0a13b";
+  for (let lane = 0; lane < lanes; lane += 1) {
+    ctx.beginPath();
+    ctx.arc(-10 + lane * 10, 22, 2.6, 0, Math.PI * 2);
+    ctx.fill();
+  }
 }
 
 function drawFilterConveyorMark(ctx, conveyor) {
@@ -1925,6 +2039,7 @@ function roundedRect(ctx, x, y, width, height, radius) {
 
 window.Sproutworks.machines = {
   canAfford,
+  canUpgradeConveyorLanes,
   canPlaceBuildable,
   demolishBuildableAt,
   getPlacementErrorMessage,
@@ -1941,6 +2056,7 @@ window.Sproutworks.machines = {
   mirrorBuildMode,
   rotateBuildMode,
   tryPlaceBuildable,
+  upgradeConveyorLanes,
   updateMachines,
   updateHarvestAnimation,
 };
