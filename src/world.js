@@ -482,6 +482,27 @@ function drawStartingWarehouse(ctx) {
   ctx.arc(114, 31, 7, 0, Math.PI * 2);
   ctx.fill();
 
+  ctx.fillStyle = "#39484b";
+  [-94, -46, 46, 94].forEach((dockX) => {
+    roundedRect(ctx, dockX - 17, 88, 34, 18, 4);
+    ctx.fill();
+  });
+  ctx.fillStyle = "#9ac7d8";
+  [-94, -46, 46, 94].forEach((dockX) => {
+    roundedRect(ctx, dockX - 11, 92, 22, 6, 3);
+    ctx.fill();
+  });
+  ctx.fillStyle = "#39484b";
+  [-168, 168].forEach((dockX) => {
+    roundedRect(ctx, dockX - 10, -20, 20, 78, 4);
+    ctx.fill();
+  });
+  ctx.fillStyle = "#ffd36a";
+  [-168, 168].forEach((dockX) => {
+    roundedRect(ctx, dockX - 5, -11, 10, 60, 3);
+    ctx.fill();
+  });
+
   ctx.fillStyle = "#f3b24d";
   drawCrate(ctx, -128, 48, 42);
   drawCrate(ctx, 96, 72, 38);

@@ -40,7 +40,7 @@ function createBuildable(type, tileX, tileY) {
     rotation: state.buildRotation,
     mirrored: state.buildMirrored,
     laneLevel: isConveyorType(type) ? 1 : undefined,
-    filterResource: type === "conveyorFilter" ? "wood" : undefined,
+    filterResource: type === "conveyorFilter" || type === "storageDepot" ? "wood" : undefined,
     passedCount: 0,
     productionTimer: 0,
     active: false,
@@ -51,6 +51,7 @@ function createBuildable(type, tileX, tileY) {
     buildable.outputTimer = 0;
     buildable.outputIndex = 0;
   }
+  if (type === "storageDepot") buildable.status = "waiting";
   return buildable;
 }
 
@@ -91,7 +92,7 @@ function canPlaceBuildable(type, worldX, worldY, ignoreId = null) {
   const footprint = getFootprint(type);
   const tiles = getFootprintTiles(tile.tileX, tile.tileY, footprint);
   if (tiles.some((spot) => !isTileInsideWorld(spot.tileX, spot.tileY))) return { ok: false, reason: "outside-map", tile };
-  if (tiles.some((spot) => isWarehouseTile(spot.tileX, spot.tileY) || isWarehouseInputTile(spot.tileX, spot.tileY) || isStoragePortTile(spot.tileX, spot.tileY, ignoreId))) return { ok: false, reason: "warehouse", tile };
+  if (tiles.some((spot) => isWarehouseTile(spot.tileX, spot.tileY) || isWarehouseInputTile(spot.tileX, spot.tileY) || isStoragePortTile(spot.tileX, spot.tileY, ignoreId) || isStorageDepotPortTile(spot.tileX, spot.tileY, ignoreId))) return { ok: false, reason: "warehouse", tile };
   if (tiles.some((spot) => {
     const machine = getMachineAtTile(spot.tileX, spot.tileY);
     return machine && machine.id !== ignoreId;
@@ -109,6 +110,21 @@ function canPlaceBuildable(type, worldX, worldY, ignoreId = null) {
       || Boolean(getMachineAtTile(port.tileX, port.tileY))
       || isStoragePortTile(port.tileX, port.tileY, ignoreId)
     ))) return { ok: false, reason: "port-blocked", tile };
+  }
+
+  if (type === "storageDepot") {
+    const placementRotation = state.moveMode && state.movingMachineId ? state.moveRotation : state.buildRotation;
+    const port = getStorageDepotInputPort({ type, tileX: tile.tileX, tileY: tile.tileY, rotation: placementRotation });
+    if (!isStorageDepotInWarehouseRange(tile.tileX, tile.tileY)) return { ok: false, reason: "warehouse-range", tile };
+    if (
+      !isTileInsideWorld(port.tileX, port.tileY)
+      || isWarehouseTile(port.tileX, port.tileY)
+      || isWarehouseInputTile(port.tileX, port.tileY)
+      || isTileBlockedByNature(port.tileX, port.tileY)
+      || Boolean(getMachineAtTile(port.tileX, port.tileY))
+      || isStoragePortTile(port.tileX, port.tileY, ignoreId)
+      || isStorageDepotPortTile(port.tileX, port.tileY, ignoreId)
+    ) return { ok: false, reason: "port-blocked", tile };
   }
 
   const center = footprintCenter(tile.tileX, tile.tileY, footprint);
@@ -149,6 +165,7 @@ function getPlacementErrorMessage(type, worldX, worldY) {
     obstacle: "Baeume, Steine und Erze blockieren diese Kachel.",
     "port-blocked": "Ein- und Ausgang vom Lager brauchen freie Kacheln.",
     "no-source": "Diese Fabrik muss nah an der passenden Ressource stehen.",
+    "warehouse-range": "Das Aussenlager muss in Reichweite vom Hauptlager stehen.",
   }[placement.reason] ?? "Hier kannst du das nicht platzieren.";
 }
 
@@ -161,6 +178,7 @@ function getPlacementHintText(placement, type) {
     obstacle: "Natur blockiert",
     "port-blocked": "Lager-Port blockiert",
     "no-source": "Naeher an Ressource",
+    "warehouse-range": "Naeher ans Hauptlager",
   }[placement.reason] ?? "Nicht platzierbar";
 }
 
@@ -179,6 +197,7 @@ function getBuildName(type) {
     conveyorOverflow: "Ueberlauf-Band",
     conveyorFilter: "Filterband",
     storageUnit: "Lager",
+    storageDepot: "Aussenlager",
     trashCan: "Muelleimer",
   }[type] ?? "Teil";
 }
@@ -352,6 +371,7 @@ function drawMachines(ctx, time) {
     if (machine.type === "stoneCollector") drawStoneCollector(ctx, machine, time);
     if (machine.type === "ironCollector") drawIronCollector(ctx, machine, time);
     if (machine.type === "storageUnit") drawStorageUnit(ctx, machine);
+    if (machine.type === "storageDepot") drawStorageDepot(ctx, machine);
     if (machine.type === "trashCan") drawTrashCan(ctx, machine);
     if (isConveyor(machine)) drawConveyor(ctx, machine, time);
   });
@@ -404,6 +424,7 @@ function drawBuildPreview(ctx, camera, pointerWorld, time) {
   if (state.buildMode === "stoneCollector") drawStoneCollector(ctx, preview, time);
   if (state.buildMode === "ironCollector") drawIronCollector(ctx, preview, time);
   if (state.buildMode === "storageUnit") drawStorageUnit(ctx, preview);
+  if (state.buildMode === "storageDepot") drawStorageDepot(ctx, preview);
   if (state.buildMode === "trashCan") drawTrashCan(ctx, preview);
   if (isConveyor(preview)) drawConveyor(ctx, preview, time);
   drawPlacementLabel(ctx, center.x, tile.y - 44, getPlacementHintText(placement, state.buildMode), placement.ok);
@@ -481,6 +502,7 @@ function drawMovePreview(ctx, camera, pointerWorld, time) {
   if (preview.type === "stoneCollector") drawStoneCollector(ctx, preview, time);
   if (preview.type === "ironCollector") drawIronCollector(ctx, preview, time);
   if (preview.type === "storageUnit") drawStorageUnit(ctx, preview);
+  if (preview.type === "storageDepot") drawStorageDepot(ctx, preview);
   if (preview.type === "trashCan") drawTrashCan(ctx, preview);
   if (isConveyor(preview)) drawConveyor(ctx, preview, time);
   ctx.restore();
@@ -595,6 +617,47 @@ function getStorageOutputTargetAtTile(tileX, tileY) {
     .find(({ output }) => output.tileX === tileX && output.tileY === tileY);
 }
 
+function getStorageDepots() {
+  return state.machines.filter((machine) => machine.type === "storageDepot");
+}
+
+function getStorageDepotInputPort(depot) {
+  const rotation = depot.rotation % 4;
+  const ports = [
+    { tileX: depot.tileX + 1, tileY: depot.tileY - 1, direction: 2 },
+    { tileX: depot.tileX + 2, tileY: depot.tileY + 1, direction: 3 },
+    { tileX: depot.tileX, tileY: depot.tileY + 2, direction: 0 },
+    { tileX: depot.tileX - 1, tileY: depot.tileY, direction: 1 },
+  ];
+  return ports[rotation];
+}
+
+function getStorageDepotInputTargetAtTile(tileX, tileY) {
+  return getStorageDepots()
+    .map((depot) => ({ depot, input: getStorageDepotInputPort(depot) }))
+    .find(({ input }) => input.tileX === tileX && input.tileY === tileY);
+}
+
+function isStorageDepotPortTile(tileX, tileY, ignoreId = null) {
+  return getStorageDepots().some((depot) => {
+    if (depot.id === ignoreId) return false;
+    const input = getStorageDepotInputPort(depot);
+    return input.tileX === tileX && input.tileY === tileY;
+  });
+}
+
+function getWarehouseCenterPoint() {
+  const { warehouse } = window.Sproutworks.world;
+  return { x: warehouse.x, y: warehouse.y - 80 + warehouse.height / 2 };
+}
+
+function isStorageDepotInWarehouseRange(tileX, tileY) {
+  const footprint = getFootprint("storageDepot");
+  const center = footprintCenter(tileX, tileY, footprint);
+  const warehouseCenter = getWarehouseCenterPoint();
+  return Math.hypot(center.x - warehouseCenter.x, center.y - warehouseCenter.y) <= CONFIG.storage.depotRange;
+}
+
 function isStoragePortTile(tileX, tileY, ignoreId = null) {
   return getStorageUnits().some((storage) => {
     if (storage.id === ignoreId) return false;
@@ -613,6 +676,20 @@ function getStorageFill(storage) {
 function canStoreInStorageUnit(storage, resource = null) {
   if (!resource) return getStorageFill(storage) < CONFIG.storage.unitMax * (Object.keys(CONFIG.resources).length - 1);
   return (storage.storage?.[resource] ?? 0) < CONFIG.storage.unitMax;
+}
+
+function canStoreInStorageDepot(depot, resource) {
+  return depot.filterResource === resource && canStoreResource(resource);
+}
+
+function storeInStorageDepot(depot, resource) {
+  if (!canStoreInStorageDepot(depot, resource)) {
+    depot.status = depot.filterResource === resource ? "blocked" : "wrong-item";
+    return false;
+  }
+  deliverResource(resource);
+  depot.status = "working";
+  return true;
 }
 
 function storeInStorageUnit(storage, resource) {
@@ -691,6 +768,9 @@ function getConveyorRoute(machine) {
         return { path: [...path, tileToWorld(inputTile.tileX, inputTile.tileY)], reachesWarehouse: true };
       }
       if (getStorageInputTargetAtTile(nextTileX, nextTileY)) {
+        return { path: [...path, tileToWorld(nextTileX, nextTileY)], reachesWarehouse: true };
+      }
+      if (getStorageDepotInputTargetAtTile(nextTileX, nextTileY)) {
         return { path: [...path, tileToWorld(nextTileX, nextTileY)], reachesWarehouse: true };
       }
 
@@ -809,6 +889,7 @@ function canItemEnterMachineFromDirection(machine, inputDirection, resource) {
 function targetHasSpaceForResource(target, resource) {
   if (target.type === "warehouse") return canStoreResource(resource);
   if (target.type === "storageUnit") return canStoreInStorageUnit(target.storage, resource);
+  if (target.type === "storageDepot") return canStoreInStorageDepot(target.depot, resource);
   return true;
 }
 
@@ -833,6 +914,9 @@ function findStorageTargetAfterConveyor(startConveyor) {
 
       const storageInput = getStorageInputTargetAtTile(nextTileX, nextTileY);
       if (storageInput) return { type: "storageUnit", storage: storageInput.storage };
+
+      const depotInput = getStorageDepotInputTargetAtTile(nextTileX, nextTileY);
+      if (depotInput) return { type: "storageDepot", depot: depotInput.depot };
 
       const nextMachine = getMachineAtTile(nextTileX, nextTileY);
       if (!nextMachine || !isConveyor(nextMachine)) continue;
@@ -1102,6 +1186,11 @@ function updateItemRouteAtConveyor(item, occupiedTiles = buildItemTileOccupancy(
     return storeInStorageUnit(storageInput.storage, item.type) ? "stored" : "wait";
   }
 
+  const depotInput = getStorageDepotInputTargetAtTile(currentTile.tileX, currentTile.tileY);
+  if (depotInput) {
+    return storeInStorageDepot(depotInput.depot, item.type) ? "stored" : "wait";
+  }
+
   const conveyor = getMachineAtTile(currentTile.tileX, currentTile.tileY);
   if (!conveyor || !isConveyor(conveyor)) return "remove";
   item.waiting = false;
@@ -1119,6 +1208,7 @@ function updateItemRouteAtConveyor(item, occupiedTiles = buildItemTileOccupancy(
 
     if (nextTile.tileX === inputTile.tileX && nextTile.tileY === inputTile.tileY) {
       if (!canStoreResource(item.type)) continue;
+      if (!isLaneAvailableForItem(nextTile.tileX, nextTile.tileY, item, occupiedTiles)) continue;
       item.path.push(tileToWorld(inputTile.tileX, inputTile.tileY));
       reserveItemTile(item, currentTile, inputTile, occupiedTiles);
       item.previousTile = { ...currentTile };
@@ -1131,6 +1221,20 @@ function updateItemRouteAtConveyor(item, occupiedTiles = buildItemTileOccupancy(
     if (getStorageInputTargetAtTile(nextTile.tileX, nextTile.tileY)) {
       const storageInput = getStorageInputTargetAtTile(nextTile.tileX, nextTile.tileY);
       if (!canStoreInStorageUnit(storageInput.storage, item.type)) continue;
+      if (!isLaneAvailableForItem(nextTile.tileX, nextTile.tileY, item, occupiedTiles)) continue;
+      item.path.push(tileToWorld(nextTile.tileX, nextTile.tileY));
+      reserveItemTile(item, currentTile, nextTile, occupiedTiles);
+      item.previousTile = { ...currentTile };
+      item.currentTile = { ...nextTile };
+      item.segment = item.path.length - 2;
+      item.progress = 0;
+      return "continue";
+    }
+
+    if (getStorageDepotInputTargetAtTile(nextTile.tileX, nextTile.tileY)) {
+      const depotInput = getStorageDepotInputTargetAtTile(nextTile.tileX, nextTile.tileY);
+      if (!canStoreInStorageDepot(depotInput.depot, item.type)) continue;
+      if (!isLaneAvailableForItem(nextTile.tileX, nextTile.tileY, item, occupiedTiles)) continue;
       item.path.push(tileToWorld(nextTile.tileX, nextTile.tileY));
       reserveItemTile(item, currentTile, nextTile, occupiedTiles);
       item.previousTile = { ...currentTile };
@@ -1141,6 +1245,7 @@ function updateItemRouteAtConveyor(item, occupiedTiles = buildItemTileOccupancy(
     }
 
     if (isTrashCanTile(nextTile.tileX, nextTile.tileY)) {
+      if (!isLaneAvailableForItem(nextTile.tileX, nextTile.tileY, item, occupiedTiles)) continue;
       item.path.push(tileToWorld(nextTile.tileX, nextTile.tileY));
       reserveItemTile(item, currentTile, nextTile, occupiedTiles);
       item.previousTile = { ...currentTile };
@@ -1155,7 +1260,7 @@ function updateItemRouteAtConveyor(item, occupiedTiles = buildItemTileOccupancy(
     const inputDirection = oppositeDir(dirIndex);
     if (!canItemEnterMachineFromDirection(nextMachine, inputDirection, item.type)) continue;
     if (nextMachine.type === "conveyorFilter" && nextMachine.filterResource !== item.type) continue;
-    if (!isTileAvailableForItem(nextTile.tileX, nextTile.tileY, item, occupiedTiles)) continue;
+    if (!isLaneAvailableForItem(nextTile.tileX, nextTile.tileY, item, occupiedTiles)) continue;
     if (nextMachine.type === "conveyorMerger" && !canMergerAcceptInput(nextMachine, inputDirection, item, occupiedTiles)) continue;
 
     candidates.push({
@@ -1192,6 +1297,7 @@ function isItemRouteStillValid(item) {
   const inputTile = getWarehouseInputTile();
   if (item.currentTile.tileX === inputTile.tileX && item.currentTile.tileY === inputTile.tileY) return true;
   if (getStorageInputTargetAtTile(item.currentTile.tileX, item.currentTile.tileY)) return true;
+  if (getStorageDepotInputTargetAtTile(item.currentTile.tileX, item.currentTile.tileY)) return true;
   if (isTrashCanTile(item.currentTile.tileX, item.currentTile.tileY)) return true;
 
   const targetMachine = getMachineAtTile(item.currentTile.tileX, item.currentTile.tileY);
@@ -1252,13 +1358,27 @@ function reserveItemTile(item, oldTile, nextTile, occupiedTiles) {
   }
   const nextKey = tileKey(nextTile.tileX, nextTile.tileY);
   const nextBucket = occupiedTiles.get(nextKey) ?? [];
-  item.lane = getFirstFreeLane(nextTile.tileX, nextTile.tileY, item, occupiedTiles);
+  item.lane = getPreferredLane(nextTile.tileX, nextTile.tileY, item, occupiedTiles);
   nextBucket.push(item);
   occupiedTiles.set(nextKey, nextBucket);
 }
 
 function isTileAvailableForItem(tileX, tileY, item, occupiedTiles) {
   return getFirstFreeLane(tileX, tileY, item, occupiedTiles) !== -1;
+}
+
+function isLaneAvailableForItem(tileX, tileY, item, occupiedTiles) {
+  return getPreferredLane(tileX, tileY, item, occupiedTiles) !== -1;
+}
+
+function getPreferredLane(tileX, tileY, item, occupiedTiles) {
+  const capacity = getTileLaneCapacity(tileX, tileY);
+  const lane = Math.max(0, Math.floor(Number(item?.lane) || 0));
+  if (lane >= capacity) return -1;
+  const usedLanes = new Set((occupiedTiles.get(tileKey(tileX, tileY)) ?? [])
+    .filter((occupant) => occupant !== item)
+    .map((occupant) => Math.max(0, Math.floor(Number(occupant.lane) || 0))));
+  return usedLanes.has(lane) ? -1 : lane;
 }
 
 function getFirstFreeLane(tileX, tileY, item, occupiedTiles) {
@@ -1275,7 +1395,7 @@ function getFirstFreeLane(tileX, tileY, item, occupiedTiles) {
 function getTileLaneCapacity(tileX, tileY) {
   const machine = getMachineAtTile(tileX, tileY);
   if (machine && isConveyor(machine)) return getConveyorLaneCapacity(machine);
-  if (isWarehouseInputTile(tileX, tileY) || getStorageInputTargetAtTile(tileX, tileY) || isTrashCanTile(tileX, tileY)) {
+  if (isWarehouseInputTile(tileX, tileY) || getStorageInputTargetAtTile(tileX, tileY) || getStorageDepotInputTargetAtTile(tileX, tileY) || isTrashCanTile(tileX, tileY)) {
     return getIncomingConveyorLaneCapacity(tileX, tileY);
   }
   return 1;
@@ -1751,6 +1871,75 @@ function drawStorageUnit(ctx, machine) {
 
   drawStoragePort(ctx, ports.input, "#7bd34c", "IN");
   drawStoragePort(ctx, ports.output, "#4fa4c8", "OUT");
+}
+
+function drawStorageDepot(ctx, machine) {
+  const size = CONFIG.world.tileSize;
+  const width = size * 2;
+  const height = size * 2;
+  const port = getStorageDepotInputPort(machine);
+  const resource = machine.filterResource ?? "wood";
+  const color = getResourceColor(resource);
+
+  ctx.save();
+  ctx.translate(machine.x, machine.y);
+
+  ctx.fillStyle = "rgba(39, 48, 35, 0.14)";
+  ctx.beginPath();
+  ctx.ellipse(0, height / 2 - 4, width * 0.43, 18, 0, 0, Math.PI * 2);
+  ctx.fill();
+
+  ctx.fillStyle = "#dce2d7";
+  roundedRect(ctx, -width / 2 + 7, -height / 2 + 12, width - 14, height - 18, 8);
+  ctx.fill();
+  ctx.strokeStyle = "#4d6062";
+  ctx.lineWidth = 4;
+  ctx.stroke();
+
+  ctx.fillStyle = "#2f5962";
+  roundedRect(ctx, -width / 2 + 12, -height / 2 + 18, width - 24, 18, 5);
+  ctx.fill();
+  ctx.fillStyle = "#74b7d1";
+  roundedRect(ctx, -width / 2 + 22, -height / 2 + 24, width - 44, 6, 3);
+  ctx.fill();
+
+  ctx.fillStyle = "#59676a";
+  roundedRect(ctx, -32, -12, 64, 58, 6);
+  ctx.fill();
+  ctx.strokeStyle = "#354345";
+  ctx.lineWidth = 3;
+  for (let y = -1; y <= 32; y += 11) {
+    ctx.beginPath();
+    ctx.moveTo(-25, y);
+    ctx.lineTo(25, y);
+    ctx.stroke();
+  }
+
+  ctx.fillStyle = color;
+  roundedRect(ctx, -24, 22, 48, 18, 4);
+  ctx.fill();
+
+  ctx.fillStyle = "#fff7df";
+  roundedRect(ctx, -38, -38, 76, 20, 5);
+  ctx.fill();
+  ctx.fillStyle = color;
+  ctx.font = "900 12px Trebuchet MS, sans-serif";
+  ctx.textAlign = "center";
+  ctx.textBaseline = "middle";
+  ctx.fillText(getResourceLabel(resource).toUpperCase(), 0, -28);
+
+  ctx.restore();
+
+  drawStoragePort(ctx, port, color, "IN");
+}
+
+function getResourceColor(resource) {
+  return {
+    wood: "#c87838",
+    stone: "#aeb2aa",
+    iron: "#8b9da2",
+    coin: "#f2b84b",
+  }[resource] ?? "#7bd34c";
 }
 
 function drawStoragePort(ctx, port, color, label) {

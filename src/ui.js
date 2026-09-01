@@ -133,6 +133,7 @@ function setupUi(input) {
   const buildConveyorOverflowButton = document.querySelector("#buildConveyorOverflowButton");
   const buildConveyorFilterButton = document.querySelector("#buildConveyorFilterButton");
   const buildStorageUnitButton = document.querySelector("#buildStorageUnitButton");
+  const buildStorageDepotButton = document.querySelector("#buildStorageDepotButton");
   const buildTrashCanButton = document.querySelector("#buildTrashCanButton");
   const statusToast = document.querySelector("#statusToast");
   const categoryTabs = document.querySelectorAll(".category-tab");
@@ -174,6 +175,7 @@ function setupUi(input) {
     [buildConveyorOverflowButton, "conveyorOverflow"],
     [buildConveyorFilterButton, "conveyorFilter"],
     [buildStorageUnitButton, "storageUnit"],
+    [buildStorageDepotButton, "storageDepot"],
     [buildTrashCanButton, "trashCan"],
   ];
 
@@ -485,6 +487,10 @@ function setupUi(input) {
     startBuildMode("storageUnit");
   });
 
+  buildStorageDepotButton.addEventListener("click", () => {
+    startBuildMode("storageDepot");
+  });
+
   buildTrashCanButton.addEventListener("click", () => {
     startBuildMode("trashCan");
   });
@@ -721,6 +727,7 @@ function getBuildName(type) {
     conveyorOverflow: "Ueberlauf-Band",
     conveyorFilter: "Filterfoerderband",
     storageUnit: "Lagerbauteil",
+    storageDepot: "Aussenlager",
     trashCan: "Muelleimer",
   }[type] ?? "dieses Teil";
 }
@@ -794,10 +801,10 @@ function showMachineInfoPanel(machine) {
   const counterRow = machine.type === "conveyorConditional" || machine.type === "conveyorOverflow"
     ? `<div class="machine-info-row"><span>Durchgelassen</span><strong>${machine.passedCount ?? 0}</strong></div>`
     : "";
-  const filterRow = machine.type === "conveyorFilter"
+  const filterRow = machine.type === "conveyorFilter" || machine.type === "storageDepot"
     ? `
       <label class="machine-info-row machine-info-select-row">
-        <span>Erlaubtes Item</span>
+        <span>${machine.type === "storageDepot" ? "Lager-Material" : "Erlaubtes Item"}</span>
         <select id="filterResourceSelect">
           <option value="wood"${machine.filterResource === "wood" ? " selected" : ""}>Holz</option>
           <option value="stone"${machine.filterResource === "stone" ? " selected" : ""}>Stein</option>
@@ -872,6 +879,7 @@ function getMachineNote(machine) {
   if (machine.status === "no-source") return "Diese Fabrik muss naeher an Baum, Stein oder Erz stehen.";
   if (machine.status === "no-output") return "Setze ein passendes Foerderband direkt an den Ausgang.";
   if (machine.type === "storageUnit") return "Gruen ist Eingang, Blau ist Ausgang. Das Lager zaehlt extra zum Hauptlager.";
+  if (machine.type === "storageDepot") return "Nimmt nur das eingestellte Material an und schickt es ins Haupt-Inventar.";
   if (machine.type === "conveyorConditional") return "Dieses Band laesst Items nur rein, wenn dahinter noch Lagerplatz erreichbar ist. Rot bedeutet: Ziel voll.";
   if (machine.type === "conveyorOverflow") return "Umgedrehtes Bedingungsband: Es laesst ein Item nur durch, wenn genau dieses Material im Ziellager voll ist.";
   if (machine.type === "conveyorFilter") return "Dieses Band blockt alle Items ausser der ausgewaehlten Ressource.";

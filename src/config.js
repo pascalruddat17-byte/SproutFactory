@@ -25,6 +25,7 @@ window.Sproutworks.CONFIG = {
   storage: {
     resourceMax: 500,
     unitMax: 300,
+    depotRange: 980,
   },
   mapReload: {
     coinCost: 500,
@@ -153,6 +154,16 @@ window.Sproutworks.CONFIG = {
       widthTiles: 3,
       heightTiles: 2,
       outputSeconds: 1.2,
+    },
+    storageDepot: {
+      cost: {
+        wood: 250,
+        stone: 150,
+        iron: 75,
+        coin: 50,
+      },
+      widthTiles: 2,
+      heightTiles: 2,
     },
   },
 };
