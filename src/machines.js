@@ -1265,6 +1265,8 @@ function getConveyorLaneCapacity(conveyor) {
 }
 
 function canMergerAcceptInput(merger, inputDirection, item, occupiedTiles) {
+  if (getConveyorLaneCapacity(merger) > 1) return true;
+
   const waitingInputs = getMergerWaitingInputs(merger, occupiedTiles);
   if (waitingInputs.length === 0) return true;
 
@@ -1380,7 +1382,7 @@ function drawItems(ctx) {
     const length = Math.max(1, Math.hypot(dx, dy));
     const offsetX = (-dy / length) * laneOffset;
     const offsetY = (dx / length) * laneOffset;
-    const itemScale = capacity > 1 ? 0.78 : 1;
+    const itemScale = capacity === 3 ? 0.66 : capacity === 2 ? 0.78 : 1;
 
     ctx.save();
     ctx.translate(item.x + offsetX, item.y + offsetY);
@@ -1411,8 +1413,8 @@ function drawItems(ctx) {
 
 function getLaneOffset(lane, capacity) {
   if (capacity <= 1) return 0;
-  if (capacity === 2) return lane === 0 ? -8 : 8;
-  return [-11, 0, 11][lane] ?? 0;
+  if (capacity === 2) return lane === 0 ? -13 : 13;
+  return [-15, 0, 15][lane] ?? 0;
 }
 
 function addFloatingResourceText(resource, x, y) {
@@ -1913,7 +1915,7 @@ function drawLaneLevelMark(ctx, conveyor) {
   ctx.fillStyle = "#f0a13b";
   for (let lane = 0; lane < lanes; lane += 1) {
     ctx.beginPath();
-    ctx.arc(-10 + lane * 10, 22, 2.6, 0, Math.PI * 2);
+    ctx.arc(getLaneOffset(lane, lanes) * 0.65, 22, 2.6, 0, Math.PI * 2);
     ctx.fill();
   }
 }
