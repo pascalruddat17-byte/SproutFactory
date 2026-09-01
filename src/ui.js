@@ -148,6 +148,8 @@ function setupUi(input) {
   const touchHint = document.querySelector("#touchHint");
   const resourceBar = document.querySelector("#resourceBar");
   const warehouseResources = document.querySelector("#warehouseResources");
+  const warehouseOutputToggle = document.querySelector("#warehouseOutputToggle");
+  const warehouseOutputResourceSelect = document.querySelector("#warehouseOutputResourceSelect");
   const controlState = {
     touchMode: false,
     dragging: false,
@@ -182,6 +184,7 @@ function setupUi(input) {
   const mobileByDefault = matchMedia("(pointer: coarse)").matches;
   updateResourceCounters(resourceBar, state.resources);
   updateResourceCounters(warehouseResources, state.resources);
+  updateWarehouseOutputControls();
   refreshBuildCards();
   window.setInterval(refreshBuildCards, 500);
   setTouchMode(mobileByDefault);
@@ -393,6 +396,19 @@ function setupUi(input) {
 
   closeWarehouseButton.addEventListener("click", () => {
     warehousePanel.hidden = true;
+  });
+
+  warehouseOutputToggle.addEventListener("click", () => {
+    state.warehouseOutputEnabled = !state.warehouseOutputEnabled;
+    window.Sproutworks.save?.markSaveDirty();
+    updateWarehouseOutputControls();
+    showToast(state.warehouseOutputEnabled ? "Lager-Ausgabe laeuft." : "Lager-Ausgabe gestoppt.");
+  });
+
+  warehouseOutputResourceSelect.addEventListener("change", () => {
+    state.warehouseOutputResource = warehouseOutputResourceSelect.value;
+    window.Sproutworks.save?.markSaveDirty();
+    updateWarehouseOutputControls();
   });
 
   closeMachineInfoButton.addEventListener("click", () => {
@@ -806,9 +822,7 @@ function showMachineInfoPanel(machine) {
       <label class="machine-info-row machine-info-select-row">
         <span>${machine.type === "storageDepot" ? "Lager-Material" : "Erlaubtes Item"}</span>
         <select id="filterResourceSelect">
-          <option value="wood"${machine.filterResource === "wood" ? " selected" : ""}>Holz</option>
-          <option value="stone"${machine.filterResource === "stone" ? " selected" : ""}>Stein</option>
-          <option value="iron"${machine.filterResource === "iron" ? " selected" : ""}>Eisen</option>
+          ${getResourceOptions(machine.filterResource)}
         </select>
       </label>
     `
@@ -905,7 +919,28 @@ function showWarehousePanel() {
   document.querySelector("#shopPanel").hidden = true;
   document.querySelector("#buildPanel").hidden = true;
   document.querySelector("#machineInfoPanel").hidden = true;
+  updateWarehouseOutputControls();
   document.querySelector("#warehousePanel").hidden = false;
+}
+
+function updateWarehouseOutputControls() {
+  const toggle = document.querySelector("#warehouseOutputToggle");
+  const select = document.querySelector("#warehouseOutputResourceSelect");
+  if (!toggle || !select) return;
+  const { state } = window.Sproutworks;
+  select.innerHTML = getResourceOptions(state.warehouseOutputResource ?? "auto", true);
+  toggle.textContent = state.warehouseOutputEnabled ? "Ausgabe stoppen" : "Ausgabe starten";
+  toggle.classList.toggle("active", Boolean(state.warehouseOutputEnabled));
+}
+
+function getResourceOptions(selected, includeAuto = false) {
+  const { CONFIG } = window.Sproutworks;
+  const resources = Object.keys(CONFIG.resources).filter((resource) => resource !== "coin");
+  const options = includeAuto ? [`<option value="auto"${selected === "auto" ? " selected" : ""}>Automatisch</option>`] : [];
+  resources.forEach((resource) => {
+    options.push(`<option value="${resource}"${selected === resource ? " selected" : ""}>${getResourceLabel(resource)}</option>`);
+  });
+  return options.join("");
 }
 
 function setBuildHintVisible(visible, text = "Bauen: Klicken zum Platzieren · R drehen · F spiegeln") {

@@ -19,6 +19,8 @@ const state = {
   harvestAnimation: null,
   warehouseOutputTimer: 0,
   warehouseOutputIndex: 0,
+  warehouseOutputEnabled: false,
+  warehouseOutputResource: "auto",
   movingMachineId: null,
   moveRotation: 0,
   moveMirrored: false,
@@ -34,6 +36,8 @@ function saveGame() {
     const saveData = {
       version: 1,
       resources: { ...state.resources },
+      warehouseOutputEnabled: Boolean(state.warehouseOutputEnabled),
+      warehouseOutputResource: sanitizeWarehouseOutputResource(state.warehouseOutputResource),
       removedSources: [...state.removedSources],
       machines: state.machines.map((machine) => ({
         id: machine.id,
@@ -89,6 +93,8 @@ function loadGame() {
     state.harvestAnimation = null;
     state.warehouseOutputTimer = 0;
     state.warehouseOutputIndex = 0;
+    state.warehouseOutputEnabled = Boolean(saveData.warehouseOutputEnabled);
+    state.warehouseOutputResource = sanitizeWarehouseOutputResource(saveData.warehouseOutputResource);
     state.movingMachineId = null;
     state.moveRotation = 0;
     state.moveMirrored = false;
@@ -119,6 +125,8 @@ function resetGame() {
   state.harvestAnimation = null;
   state.warehouseOutputTimer = 0;
   state.warehouseOutputIndex = 0;
+  state.warehouseOutputEnabled = false;
+  state.warehouseOutputResource = "auto";
   state.movingMachineId = null;
   state.moveRotation = 0;
   state.moveMirrored = false;
@@ -174,7 +182,13 @@ function sanitizeMachine(machine) {
 }
 
 function sanitizeFilterResource(resource) {
-  return ["wood", "stone", "iron"].includes(resource) ? resource : "wood";
+  const resources = Object.keys(CONFIG.resources).filter((item) => item !== "coin");
+  return resources.includes(resource) ? resource : resources[0] ?? "wood";
+}
+
+function sanitizeWarehouseOutputResource(resource) {
+  const resources = Object.keys(CONFIG.resources).filter((item) => item !== "coin");
+  return resource === "auto" || resources.includes(resource) ? resource : "auto";
 }
 
 function sanitizeMachineStorage(storage) {

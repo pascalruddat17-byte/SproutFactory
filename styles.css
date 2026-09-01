@@ -832,6 +832,38 @@ button {
   overscroll-behavior: contain;
 }
 
+.warehouse-output-controls {
+  display: grid;
+  gap: 9px;
+  margin: 12px 0;
+  padding: 10px;
+  background: rgba(255, 255, 255, 0.45);
+  border: 2px solid rgba(77, 111, 59, 0.22);
+  border-radius: 8px;
+}
+
+.warehouse-output-controls label {
+  display: grid;
+  gap: 5px;
+  font-weight: 900;
+}
+
+.warehouse-output-controls select {
+  width: 100%;
+  padding: 9px 10px;
+  color: var(--ink);
+  background: #fffdf1;
+  border: 2px solid #9aae82;
+  border-radius: 6px;
+  font: inherit;
+  font-weight: 900;
+}
+
+.warehouse-output-toggle.active {
+  background: #4f9f43;
+  border-color: #2f6f3b;
+}
+
 .machine-info-panel {
   left: 16px;
   top: 78px;
@@ -1260,7 +1292,7 @@ body.touch-mode .tray-button.confirm {
     right: 10px;
     bottom: calc(max(8px, env(safe-area-inset-bottom)) + 82px);
     width: auto;
-    max-height: min(58vh, 480px);
+    max-height: min(66dvh, 520px);
     padding: 12px;
     border-width: 2px;
   }
@@ -1286,16 +1318,36 @@ body.touch-mode .tray-button.confirm {
   .warehouse-panel {
     left: 12px;
     right: 12px;
-    top: calc(max(10px, env(safe-area-inset-top)) + 96px);
+    top: auto;
+    bottom: calc(max(8px, env(safe-area-inset-bottom)) + 78px);
     width: auto;
-    max-height: calc(100vh - 188px);
+    max-height: min(68dvh, 560px);
     overflow-y: auto;
     transform: none;
   }
 
   .warehouse-resources {
     grid-template-columns: repeat(2, minmax(0, 1fr));
-    max-height: 36vh;
+    max-height: 28dvh;
+    gap: 6px;
+  }
+
+  .warehouse-output-controls {
+    grid-template-columns: 1fr auto;
+    align-items: end;
+    gap: 8px;
+    padding: 8px;
+  }
+
+  .warehouse-output-controls select {
+    min-height: 38px;
+    padding: 7px 8px;
+  }
+
+  .warehouse-output-toggle {
+    min-height: 38px;
+    padding: 0 10px;
+    white-space: nowrap;
   }
 
   .code-row input {
@@ -1377,19 +1429,19 @@ body.touch-mode .tray-button.confirm {
     left: 12px;
     top: calc(max(10px, env(safe-area-inset-top)) + 54px);
     min-width: 0;
-    width: 142px;
+    width: 118px;
     gap: 2px;
-    padding: 7px 8px;
+    padding: 6px 7px;
     border-width: 2px;
-    font-size: 10.5px;
+    font-size: 9.5px;
   }
 
   .factory-status-row {
-    gap: 6px;
+    gap: 4px;
   }
 
   .factory-status strong {
-    font-size: 11px;
+    font-size: 10px;
   }
 
   .save-status {

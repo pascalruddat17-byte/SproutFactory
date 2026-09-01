@@ -198,6 +198,18 @@
           <button id="closeWarehouseButton" class="mini-button" type="button" aria-label="Lager schliessen">x</button>
         </div>
         <p>Kapazitaet: <strong>500</strong> pro Ressource</p>
+        <div class="warehouse-output-controls" aria-label="Lagerausgabe">
+          <label>
+            <span>Ausgabe</span>
+            <select id="warehouseOutputResourceSelect">
+              <option value="auto">Automatisch</option>
+              <option value="wood">Holz</option>
+              <option value="stone">Stein</option>
+              <option value="iron">Eisen</option>
+            </select>
+          </label>
+          <button id="warehouseOutputToggle" class="upgrade-button warehouse-output-toggle" type="button">Ausgabe starten</button>
+        </div>
         <div id="warehouseResources" class="warehouse-resources" aria-label="Ressourcen im Hauptlager">
           <div class="resource-counter currency-counter" data-resource="coin">
             <span class="resource-icon coin-icon" aria-hidden="true"></span>

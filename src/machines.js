@@ -1074,6 +1074,7 @@ function updateStorageUnits(delta) {
 }
 
 function updateWarehouseOutputs(delta) {
+  if (!state.warehouseOutputEnabled) return;
   const outputs = getWarehouseOutputConveyors();
   if (outputs.length === 0) return;
 
@@ -1179,6 +1180,12 @@ function getStorageOutputConveyor(storage) {
 
 function takeWarehouseOutputResource() {
   const resources = Object.keys(CONFIG.resources).filter((resource) => resource !== "coin");
+  const selected = state.warehouseOutputResource ?? "auto";
+  if (selected !== "auto") {
+    if ((state.resources?.[selected] ?? 0) <= 0) return null;
+    state.resources[selected] -= 1;
+    return selected;
+  }
   for (let i = 0; i < resources.length; i += 1) {
     const index = ((state.warehouseOutputIndex ?? 0) + i) % resources.length;
     const resource = resources[index];
@@ -2377,7 +2384,9 @@ function drawFilterConveyorMark(ctx, conveyor) {
 }
 
 function drawConditionalConveyorMark(ctx, conveyor) {
-  const canPassAnything = ["wood", "stone", "iron"].some((resource) => canConditionalConveyorPass(conveyor, resource));
+  const canPassAnything = Object.keys(CONFIG.resources)
+    .filter((resource) => resource !== "coin")
+    .some((resource) => canConditionalConveyorPass(conveyor, resource));
   ctx.setLineDash([]);
   ctx.fillStyle = canPassAnything ? "#7bd34c" : "#d85f45";
   roundedRect(ctx, -16, -23, 32, 14, 4);
