@@ -924,10 +924,12 @@ function spawnStoredResourceItem(storage, output, resource) {
 
 function updateItems(delta) {
   removeDuplicateWaitingItems();
+  const occupiedTiles = buildItemTileOccupancy();
 
   for (let i = state.items.length - 1; i >= 0; i -= 1) {
     const item = state.items[i];
     if (!isItemRouteStillValid(item)) {
+      releaseItemTile(item, occupiedTiles);
       state.items.splice(i, 1);
       continue;
     }
@@ -943,15 +945,11 @@ function updateItems(delta) {
       const distanceLeft = segmentLength * (1 - item.progress);
 
       if (remaining >= distanceLeft) {
-        if (isItemBlockedAt(item, to.x, to.y)) {
-          remaining = 0;
-          break;
-        }
         remaining -= distanceLeft;
         item.segment += 1;
         item.progress = 0;
         if (item.segment >= item.path.length - 1) {
-          const nextStep = updateItemRouteAtConveyor(item);
+          const nextStep = updateItemRouteAtConveyor(item, occupiedTiles);
           if (nextStep === "deliver") {
             deliverItem = true;
             break;
@@ -976,12 +974,6 @@ function updateItems(delta) {
         }
       } else {
         const nextProgress = item.progress + remaining / segmentLength;
-        const nextX = from.x + (to.x - from.x) * nextProgress;
-        const nextY = from.y + (to.y - from.y) * nextProgress;
-        if (isItemBlockedAt(item, nextX, nextY)) {
-          remaining = 0;
-          break;
-        }
         item.progress = nextProgress;
         remaining = 0;
       }
@@ -990,27 +982,34 @@ function updateItems(delta) {
     if (deliverItem) {
       deliverResourceItem(item);
       window.Sproutworks.save?.markSaveDirty();
+      releaseItemTile(item, occupiedTiles);
       state.items.splice(i, 1);
       continue;
     }
 
     if (removeItem) {
+      releaseItemTile(item, occupiedTiles);
       state.items.splice(i, 1);
       continue;
     }
 
     if (item.segment >= item.path.length - 1) {
-      const nextStep = updateItemRouteAtConveyor(item);
+      const nextStep = updateItemRouteAtConveyor(item, occupiedTiles);
       if (nextStep === "deliver") {
         deliverResourceItem(item);
         window.Sproutworks.save?.markSaveDirty();
+        releaseItemTile(item, occupiedTiles);
+        state.items.splice(i, 1);
+        continue;
       }
       if (nextStep === "stored") {
         window.Sproutworks.save?.markSaveDirty();
+        releaseItemTile(item, occupiedTiles);
         state.items.splice(i, 1);
         continue;
       }
       if (nextStep === "trash") {
+        releaseItemTile(item, occupiedTiles);
         state.items.splice(i, 1);
         continue;
       }
@@ -1019,6 +1018,7 @@ function updateItems(delta) {
         continue;
       }
       if (nextStep !== "continue") {
+        releaseItemTile(item, occupiedTiles);
         state.items.splice(i, 1);
         continue;
       }
@@ -1031,7 +1031,7 @@ function updateItems(delta) {
   }
 }
 
-function updateItemRouteAtConveyor(item) {
+function updateItemRouteAtConveyor(item, occupiedTiles = buildItemTileOccupancy()) {
   const currentTile = item.currentTile;
   if (!currentTile) return "remove";
   if (isTrashCanTile(currentTile.tileX, currentTile.tileY)) return "trash";
@@ -1062,8 +1062,9 @@ function updateItemRouteAtConveyor(item) {
     };
 
     if (nextTile.tileX === inputTile.tileX && nextTile.tileY === inputTile.tileY) {
-      if (!canStoreResource(item.type) && isTileOccupiedByWaitingItem(nextTile.tileX, nextTile.tileY, item)) continue;
+      if (!canStoreResource(item.type)) continue;
       item.path.push(tileToWorld(inputTile.tileX, inputTile.tileY));
+      reserveItemTile(item, currentTile, inputTile, occupiedTiles);
       item.previousTile = { ...currentTile };
       item.currentTile = { ...inputTile };
       item.segment = item.path.length - 2;
@@ -1073,8 +1074,9 @@ function updateItemRouteAtConveyor(item) {
 
     if (getStorageInputTargetAtTile(nextTile.tileX, nextTile.tileY)) {
       const storageInput = getStorageInputTargetAtTile(nextTile.tileX, nextTile.tileY);
-      if (!canStoreInStorageUnit(storageInput.storage) && isTileOccupiedByWaitingItem(nextTile.tileX, nextTile.tileY, item)) continue;
+      if (!canStoreInStorageUnit(storageInput.storage)) continue;
       item.path.push(tileToWorld(nextTile.tileX, nextTile.tileY));
+      reserveItemTile(item, currentTile, nextTile, occupiedTiles);
       item.previousTile = { ...currentTile };
       item.currentTile = { ...nextTile };
       item.segment = item.path.length - 2;
@@ -1084,6 +1086,7 @@ function updateItemRouteAtConveyor(item) {
 
     if (isTrashCanTile(nextTile.tileX, nextTile.tileY)) {
       item.path.push(tileToWorld(nextTile.tileX, nextTile.tileY));
+      reserveItemTile(item, currentTile, nextTile, occupiedTiles);
       item.previousTile = { ...currentTile };
       item.currentTile = { ...nextTile };
       item.segment = item.path.length - 2;
@@ -1093,14 +1096,17 @@ function updateItemRouteAtConveyor(item) {
 
     const nextMachine = getMachineAtTile(nextTile.tileX, nextTile.tileY);
     if (!nextMachine || !isConveyor(nextMachine)) continue;
-    if (!canItemEnterMachineFromDirection(nextMachine, oppositeDir(dirIndex), item.type)) continue;
+    const inputDirection = oppositeDir(dirIndex);
+    if (!canItemEnterMachineFromDirection(nextMachine, inputDirection, item.type)) continue;
     if (nextMachine.type === "conveyorFilter" && nextMachine.filterResource !== item.type) continue;
-    if (isTileOccupiedByWaitingItem(nextTile.tileX, nextTile.tileY, item)) continue;
+    if (!isTileAvailableForItem(nextTile.tileX, nextTile.tileY, item, occupiedTiles)) continue;
+    if (nextMachine.type === "conveyorMerger" && !canMergerAcceptInput(nextMachine, inputDirection, item, occupiedTiles)) continue;
 
     candidates.push({
       conveyor: nextMachine,
       tile: nextTile,
       key: tileKey(nextTile.tileX, nextTile.tileY),
+      inputDirection,
     });
   }
 
@@ -1112,7 +1118,9 @@ function updateItemRouteAtConveyor(item) {
   const next = usableCandidates[conveyor.routeIndex];
   conveyor.routeIndex = (conveyor.routeIndex + 1) % usableCandidates.length;
   countGatePass(next.conveyor);
+  if (next.conveyor.type === "conveyorMerger") noteMergerAccepted(next.conveyor, next.inputDirection);
 
+  reserveItemTile(item, currentTile, next.tile, occupiedTiles);
   item.previousTile = { ...currentTile };
   item.currentTile = { ...next.tile };
   item.path.push(pointFromMachine(next.conveyor));
@@ -1141,10 +1149,82 @@ function placeItemAtWaitPoint(item) {
   item.waiting = true;
 }
 
+function buildItemTileOccupancy() {
+  const occupied = new Map();
+  state.items.forEach((item) => {
+    const key = getItemTileKey(item);
+    if (!key || occupied.has(key)) return;
+    occupied.set(key, item);
+  });
+  return occupied;
+}
+
+function getItemTileKey(item) {
+  if (!item.currentTile) return "";
+  return tileKey(item.currentTile.tileX, item.currentTile.tileY);
+}
+
+function releaseItemTile(item, occupiedTiles) {
+  const key = getItemTileKey(item);
+  if (key && occupiedTiles.get(key) === item) occupiedTiles.delete(key);
+}
+
+function reserveItemTile(item, oldTile, nextTile, occupiedTiles) {
+  const oldKey = oldTile ? tileKey(oldTile.tileX, oldTile.tileY) : getItemTileKey(item);
+  if (oldKey && occupiedTiles.get(oldKey) === item) occupiedTiles.delete(oldKey);
+  occupiedTiles.set(tileKey(nextTile.tileX, nextTile.tileY), item);
+}
+
+function isTileAvailableForItem(tileX, tileY, item, occupiedTiles) {
+  const occupant = occupiedTiles.get(tileKey(tileX, tileY));
+  return !occupant || occupant === item;
+}
+
+function canMergerAcceptInput(merger, inputDirection, item, occupiedTiles) {
+  const waitingInputs = getMergerWaitingInputs(merger, occupiedTiles);
+  if (waitingInputs.length === 0) return true;
+
+  const inputKey = tileKey(item.currentTile.tileX, item.currentTile.tileY);
+  if (!waitingInputs.some((candidate) => candidate.inputDirection === inputDirection && candidate.key === inputKey)) return true;
+
+  const inputOrder = getConveyorInputs(merger);
+  const startIndex = merger.inputRouteIndex ?? 0;
+  for (let offset = 0; offset < inputOrder.length; offset += 1) {
+    const direction = inputOrder[(startIndex + offset) % inputOrder.length];
+    const candidate = waitingInputs.find((entry) => entry.inputDirection === direction);
+    if (candidate) return candidate.inputDirection === inputDirection && candidate.key === inputKey;
+  }
+
+  return true;
+}
+
+function noteMergerAccepted(merger, inputDirection) {
+  const inputOrder = getConveyorInputs(merger);
+  const index = inputOrder.indexOf(inputDirection);
+  if (index === -1) return;
+  merger.inputRouteIndex = (index + 1) % inputOrder.length;
+}
+
+function getMergerWaitingInputs(merger, occupiedTiles) {
+  return getConveyorInputs(merger).flatMap((inputDirection) => {
+    const dir = DIRS[inputDirection];
+    const tileX = merger.tileX + dir.dx;
+    const tileY = merger.tileY + dir.dy;
+    const item = occupiedTiles.get(tileKey(tileX, tileY));
+    if (!item || !item.currentTile) return [];
+    if (item.segment < item.path.length - 1) return [];
+
+    const source = getMachineAtTile(tileX, tileY);
+    if (!source || !isConveyor(source)) return [];
+    if (!getConveyorOutputs(source).includes(oppositeDir(inputDirection))) return [];
+    return [{ inputDirection, key: tileKey(tileX, tileY) }];
+  });
+}
+
 function removeDuplicateWaitingItems() {
   const occupiedTiles = new Set();
   state.items = state.items.filter((item) => {
-    if (!item.waiting || !item.currentTile) return true;
+    if (!item.currentTile) return true;
     const key = tileKey(item.currentTile.tileX, item.currentTile.tileY);
     if (occupiedTiles.has(key)) return false;
     occupiedTiles.add(key);
@@ -1187,7 +1267,7 @@ function canStoreResource(resource) {
 
 function canSpawnItemAt(conveyor, resource = null) {
   if (resource && !canItemEnterMachineFromDirection(conveyor, getConveyorInputs(conveyor)[0], resource)) return false;
-  return !isTileOccupiedByWaitingItem(conveyor.tileX, conveyor.tileY);
+  return !isTileOccupiedByAnyItem(conveyor.tileX, conveyor.tileY);
 }
 
 function countGatePass(conveyor) {
@@ -1195,15 +1275,9 @@ function countGatePass(conveyor) {
   conveyor.passedCount = (conveyor.passedCount ?? 0) + 1;
 }
 
-function isItemBlockedAt(item, x, y) {
-  const targetTile = worldToTile(x, y);
-  return isTileOccupiedByWaitingItem(targetTile.tileX, targetTile.tileY, item);
-}
-
-function isTileOccupiedByWaitingItem(tileX, tileY, ignoredItem = null) {
+function isTileOccupiedByAnyItem(tileX, tileY, ignoredItem = null) {
   return state.items.some((other) => (
-    other.waiting
-    && other !== ignoredItem
+    other !== ignoredItem
     && other.currentTile?.tileX === tileX
     && other.currentTile?.tileY === tileY
   ));
