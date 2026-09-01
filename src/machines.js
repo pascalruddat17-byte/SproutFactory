@@ -319,7 +319,7 @@ function refundCost(cost) {
 }
 
 function canUpgradeConveyorLanes(machine) {
-  return machine?.type === "conveyorStraight" || machine?.type === "conveyorCorner" || machine?.type === "conveyorMerger";
+  return Boolean(machine?.type && isConveyorType(machine.type));
 }
 
 function upgradeConveyorLanes(machine) {

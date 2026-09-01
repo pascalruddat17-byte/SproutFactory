@@ -873,7 +873,7 @@ function getMachineNote(machine) {
   if (machine.status === "no-output") return "Setze ein passendes Foerderband direkt an den Ausgang.";
   if (machine.type === "storageUnit") return "Gruen ist Eingang, Blau ist Ausgang. Das Lager zaehlt extra zum Hauptlager.";
   if (machine.type === "conveyorConditional") return "Dieses Band laesst Items nur rein, wenn dahinter noch Lagerplatz erreichbar ist. Rot bedeutet: Ziel voll.";
-  if (machine.type === "conveyorOverflow") return "Dieses Band laesst Items nur durch, wenn das Ziel-Lager voll ist.";
+  if (machine.type === "conveyorOverflow") return "Umgedrehtes Bedingungsband: Es laesst ein Item nur durch, wenn genau dieses Material im Ziellager voll ist.";
   if (machine.type === "conveyorFilter") return "Dieses Band blockt alle Items ausser der ausgewaehlten Ressource.";
   if (machine.type === "conveyorPriority2") return "Prioritaetsband: links zuerst, sonst rechts, wenn links blockiert ist.";
   if (machine.type === "conveyorPriority3") return "Prioritaetsband: links, rechts, geradeaus. Es nimmt den ersten freien Weg.";
