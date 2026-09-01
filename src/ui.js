@@ -110,6 +110,7 @@ function setupUi(input) {
   const buildConveyorCornerButton = document.querySelector("#buildConveyorCornerButton");
   const buildConveyorMergerButton = document.querySelector("#buildConveyorMergerButton");
   const buildConveyorSplitterButton = document.querySelector("#buildConveyorSplitterButton");
+  const buildConveyorConditionalButton = document.querySelector("#buildConveyorConditionalButton");
   const buildStorageUnitButton = document.querySelector("#buildStorageUnitButton");
   const statusToast = document.querySelector("#statusToast");
   const categoryTabs = document.querySelectorAll(".category-tab");
@@ -143,6 +144,7 @@ function setupUi(input) {
     [buildConveyorCornerButton, "conveyorCorner"],
     [buildConveyorMergerButton, "conveyorMerger"],
     [buildConveyorSplitterButton, "conveyorSplitter"],
+    [buildConveyorConditionalButton, "conveyorConditional"],
     [buildStorageUnitButton, "storageUnit"],
   ];
 
@@ -391,6 +393,10 @@ function setupUi(input) {
     startBuildMode("conveyorSplitter");
   });
 
+  buildConveyorConditionalButton.addEventListener("click", () => {
+    startBuildMode("conveyorConditional");
+  });
+
   buildStorageUnitButton.addEventListener("click", () => {
     startBuildMode("storageUnit");
   });
@@ -602,6 +608,7 @@ function getBuildName(type) {
     conveyorCorner: "Eckfoerderband",
     conveyorMerger: "Zusammenfuehrer",
     conveyorSplitter: "Splitter",
+    conveyorConditional: "Bedingungsfoerderband",
     storageUnit: "Lagerbauteil",
   }[type] ?? "dieses Teil";
 }
@@ -689,6 +696,7 @@ function getMachineNote(machine) {
   if (machine.status === "no-source") return "Diese Fabrik muss naeher an Baum, Stein oder Erz stehen.";
   if (machine.status === "no-output") return "Setze ein passendes Foerderband direkt an den Ausgang.";
   if (machine.type === "storageUnit") return "Gruen ist Eingang, Blau ist Ausgang. Das Lager zaehlt extra zum Hauptlager.";
+  if (machine.type === "conveyorConditional") return "Dieses Band laesst Items nur rein, wenn dahinter noch Lagerplatz erreichbar ist.";
   if (machine.type?.startsWith("conveyor")) return "Items folgen bei jedem Band neu der Richtung dieses Teils.";
   return "Diese Maschine produziert automatisch, wenn Quelle und Foerderband passen.";
 }

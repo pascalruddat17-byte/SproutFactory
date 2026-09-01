@@ -100,6 +100,12 @@ window.Sproutworks.CONFIG = {
         wood: 4,
       },
     },
+    conveyorConditional: {
+      cost: {
+        iron: 4,
+        wood: 3,
+      },
+    },
     storageUnit: {
       cost: {
         coin: 25,

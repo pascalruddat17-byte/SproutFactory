@@ -690,6 +690,7 @@ function getConveyorConnections(conveyor) {
 function getConveyorInputs(conveyor) {
   const rotation = conveyor.rotation % 4;
   if (conveyor.type === "conveyorStraight") return [rotateDir(3, rotation)];
+  if (conveyor.type === "conveyorConditional") return [rotateDir(3, rotation)];
   if (conveyor.type === "conveyorCorner") return [rotateDir(conveyor.mirrored ? 2 : 0, rotation)];
   if (conveyor.type === "conveyorMerger") return rotateDirs([3, 0, 2], rotation);
   if (conveyor.type === "conveyorSplitter") return [rotateDir(3, rotation)];
@@ -699,6 +700,7 @@ function getConveyorInputs(conveyor) {
 function getConveyorOutputs(conveyor) {
   const rotation = conveyor.rotation % 4;
   if (conveyor.type === "conveyorStraight") return [rotateDir(1, rotation)];
+  if (conveyor.type === "conveyorConditional") return [rotateDir(1, rotation)];
   if (conveyor.type === "conveyorCorner") return [rotateDir(1, rotation)];
   if (conveyor.type === "conveyorMerger") return [rotateDir(1, rotation)];
   if (conveyor.type === "conveyorSplitter") return rotateDirs([1, 0, 2], rotation);
@@ -710,7 +712,7 @@ function isConveyor(machine) {
 }
 
 function isConveyorType(type) {
-  return type === "conveyorStraight" || type === "conveyorCorner" || type === "conveyorMerger" || type === "conveyorSplitter";
+  return type === "conveyorStraight" || type === "conveyorCorner" || type === "conveyorMerger" || type === "conveyorSplitter" || type === "conveyorConditional";
 }
 
 function oppositeDir(dirIndex) {
@@ -723,6 +725,46 @@ function rotateDirs(dirs, rotation) {
 
 function rotateDir(dir, rotation) {
   return (dir + rotation) % 4;
+}
+
+function canConditionalConveyorPass(conveyor, resource) {
+  const target = findStorageTargetAfterConveyor(conveyor);
+  if (!target) return true;
+  if (target.type === "warehouse") return canStoreResource(resource);
+  if (target.type === "storageUnit") return canStoreInStorageUnit(target.storage);
+  return true;
+}
+
+function findStorageTargetAfterConveyor(startConveyor) {
+  const inputTile = getWarehouseInputTile();
+  const queue = [{ conveyor: startConveyor }];
+  const seen = new Set();
+
+  while (queue.length > 0) {
+    const { conveyor } = queue.shift();
+    const key = tileKey(conveyor.tileX, conveyor.tileY);
+    if (seen.has(key)) continue;
+    seen.add(key);
+
+    for (const dirIndex of getConveyorOutputs(conveyor)) {
+      const dir = DIRS[dirIndex];
+      const nextTileX = conveyor.tileX + dir.dx;
+      const nextTileY = conveyor.tileY + dir.dy;
+      if (nextTileX === inputTile.tileX && nextTileY === inputTile.tileY) {
+        return { type: "warehouse" };
+      }
+
+      const storageInput = getStorageInputTargetAtTile(nextTileX, nextTileY);
+      if (storageInput) return { type: "storageUnit", storage: storageInput.storage };
+
+      const nextMachine = getMachineAtTile(nextTileX, nextTileY);
+      if (!nextMachine || !isConveyor(nextMachine)) continue;
+      if (!getConveyorInputs(nextMachine).includes(oppositeDir(dirIndex))) continue;
+      queue.push({ conveyor: nextMachine });
+    }
+  }
+
+  return null;
 }
 
 function tileKey(tileX, tileY) {
@@ -971,6 +1013,7 @@ function updateItemRouteAtConveyor(item) {
     const nextMachine = getMachineAtTile(nextTile.tileX, nextTile.tileY);
     if (!nextMachine || !isConveyor(nextMachine)) continue;
     if (!getConveyorInputs(nextMachine).includes(oppositeDir(dirIndex))) continue;
+    if (nextMachine.type === "conveyorConditional" && !canConditionalConveyorPass(nextMachine, item.type)) continue;
     if (isTileOccupiedByWaitingItem(nextTile.tileX, nextTile.tileY, item)) continue;
 
     candidates.push({
@@ -1432,7 +1475,7 @@ function drawConveyor(ctx, conveyor, time) {
   ctx.setLineDash([12, 12]);
   ctx.lineDashOffset = -(time * 0.035) % 24;
   ctx.beginPath();
-  if (conveyor.type === "conveyorStraight") {
+  if (conveyor.type === "conveyorStraight" || conveyor.type === "conveyorConditional") {
     ctx.moveTo(-size / 2 + 10, 0);
     ctx.lineTo(size / 2 - 10, 0);
     ctx.stroke();
@@ -1454,8 +1497,29 @@ function drawConveyor(ctx, conveyor, time) {
   if (conveyor.type === "conveyorMerger" || conveyor.type === "conveyorSplitter") {
     drawConveyorJunctionMark(ctx, conveyor.type);
   }
+  if (conveyor.type === "conveyorConditional") {
+    drawConditionalConveyorMark(ctx, conveyor);
+  }
 
   ctx.restore();
+}
+
+function drawConditionalConveyorMark(ctx, conveyor) {
+  const canPassAnything = ["wood", "stone", "iron"].some((resource) => canConditionalConveyorPass(conveyor, resource));
+  ctx.setLineDash([]);
+  ctx.fillStyle = canPassAnything ? "#7bd34c" : "#d85f45";
+  roundedRect(ctx, -16, -23, 32, 14, 4);
+  ctx.fill();
+  ctx.strokeStyle = "#2f383b";
+  ctx.lineWidth = 3;
+  ctx.stroke();
+
+  ctx.strokeStyle = "#fff7df";
+  ctx.lineWidth = 4;
+  ctx.beginPath();
+  ctx.moveTo(-14, 15);
+  ctx.lineTo(14, -15);
+  ctx.stroke();
 }
 
 function drawConveyorJunctionMark(ctx, type) {
