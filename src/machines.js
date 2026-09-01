@@ -1524,6 +1524,7 @@ window.Sproutworks.machines = {
   canPlaceBuildable,
   demolishBuildableAt,
   getPlacementErrorMessage,
+  getMachineAtWorld,
   harvestResourceAt,
   refundAllBuildings,
   drawHarvestAnimation,

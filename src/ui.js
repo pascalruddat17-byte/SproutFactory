@@ -95,6 +95,8 @@ function setupUi(input) {
   const closeShopButton = document.querySelector("#closeShopButton");
   const warehousePanel = document.querySelector("#warehousePanel");
   const closeWarehouseButton = document.querySelector("#closeWarehouseButton");
+  const machineInfoPanel = document.querySelector("#machineInfoPanel");
+  const closeMachineInfoButton = document.querySelector("#closeMachineInfoButton");
   const buildMenuButton = document.querySelector("#buildMenuButton");
   const demolishButton = document.querySelector("#demolishButton");
   const moveButton = document.querySelector("#moveButton");
@@ -154,6 +156,7 @@ function setupUi(input) {
     menuPanel.hidden = !menuPanel.hidden;
     shopPanel.hidden = true;
     buildPanel.hidden = true;
+    machineInfoPanel.hidden = true;
   });
 
   codeButton.addEventListener("click", () => {
@@ -225,6 +228,7 @@ function setupUi(input) {
     shopPanel.hidden = true;
     buildPanel.hidden = true;
     warehousePanel.hidden = true;
+    machineInfoPanel.hidden = true;
     demolishButton.classList.remove("active");
     moveButton.classList.remove("active");
     harvestButton.classList.remove("active");
@@ -237,6 +241,7 @@ function setupUi(input) {
     menuPanel.hidden = true;
     warehousePanel.hidden = true;
     buildPanel.hidden = true;
+    machineInfoPanel.hidden = true;
   });
 
   buildMenuButton.addEventListener("click", () => {
@@ -254,6 +259,7 @@ function setupUi(input) {
     menuPanel.hidden = true;
     shopPanel.hidden = true;
     warehousePanel.hidden = true;
+    machineInfoPanel.hidden = true;
   });
 
   demolishButton.addEventListener("click", () => {
@@ -269,6 +275,7 @@ function setupUi(input) {
     menuPanel.hidden = true;
     shopPanel.hidden = true;
     warehousePanel.hidden = true;
+    machineInfoPanel.hidden = true;
     demolishButton.classList.toggle("active", state.demolishMode);
     moveButton.classList.remove("active");
     harvestButton.classList.remove("active");
@@ -286,6 +293,7 @@ function setupUi(input) {
     menuPanel.hidden = true;
     shopPanel.hidden = true;
     warehousePanel.hidden = true;
+    machineInfoPanel.hidden = true;
     demolishButton.classList.remove("active");
     harvestButton.classList.remove("active");
     moveButton.classList.toggle("active", state.moveMode);
@@ -303,6 +311,7 @@ function setupUi(input) {
     menuPanel.hidden = true;
     shopPanel.hidden = true;
     warehousePanel.hidden = true;
+    machineInfoPanel.hidden = true;
     demolishButton.classList.remove("active");
     moveButton.classList.remove("active");
     harvestButton.classList.toggle("active", state.harvestMode);
@@ -319,6 +328,10 @@ function setupUi(input) {
 
   closeWarehouseButton.addEventListener("click", () => {
     warehousePanel.hidden = true;
+  });
+
+  closeMachineInfoButton.addEventListener("click", () => {
+    machineInfoPanel.hidden = true;
   });
 
   closeBuildButton.addEventListener("click", () => {
@@ -560,6 +573,7 @@ function getPinchCenter(pointers) {
 
 window.Sproutworks.ui = {
   createInput,
+  showMachineInfoPanel,
   showWarehousePanel,
   showToast,
   setupUi,
@@ -624,10 +638,75 @@ function updateFactoryStatus(factoryStatus) {
   `;
 }
 
+function showMachineInfoPanel(machine) {
+  const panel = document.querySelector("#machineInfoPanel");
+  const title = document.querySelector("#machineInfoTitle");
+  const body = document.querySelector("#machineInfoBody");
+  if (!panel || !title || !body || !machine) return;
+
+  const { CONFIG } = window.Sproutworks;
+  const cost = CONFIG.machines[machine.type]?.cost ?? {};
+  const status = getMachineStatusText(machine);
+  const rotationText = ["Rechts", "Unten", "Links", "Oben"][machine.rotation % 4] ?? "Rechts";
+  const costText = Object.entries(cost).length > 0
+    ? Object.entries(cost).map(([resource, amount]) => `${amount} ${getResourceLabel(resource)}`).join(" · ")
+    : "Kostenlos";
+  const storageRows = machine.type === "storageUnit"
+    ? Object.entries(machine.storage ?? {}).map(([resource, amount]) => `
+      <div class="machine-info-row"><span>${getResourceLabel(resource)}</span><strong>${amount}/${CONFIG.storage.unitMax}</strong></div>
+    `).join("")
+    : "";
+
+  title.textContent = getBuildName(machine.type);
+  body.innerHTML = `
+    <div class="machine-info-row"><span>Status</span><strong>${status}</strong></div>
+    <div class="machine-info-row"><span>Groesse</span><strong>${machine.widthTiles ?? 1}x${machine.heightTiles ?? 1}</strong></div>
+    <div class="machine-info-row"><span>Richtung</span><strong>${rotationText}${machine.mirrored ? " gespiegelt" : ""}</strong></div>
+    <div class="machine-info-row"><span>Baumaterial</span><strong>${costText}</strong></div>
+    ${storageRows}
+    <p class="machine-info-note">${getMachineNote(machine)}</p>
+  `;
+
+  document.querySelector("#menuPanel").hidden = true;
+  document.querySelector("#shopPanel").hidden = true;
+  document.querySelector("#buildPanel").hidden = true;
+  document.querySelector("#warehousePanel").hidden = true;
+  panel.hidden = false;
+}
+
+function getMachineStatusText(machine) {
+  return {
+    working: "Laeuft",
+    blocked: "Blockiert",
+    "no-source": "Keine Ressource",
+    "no-output": "Kein Ausgang",
+    empty: "Leer",
+  }[machine.status] ?? (machine.connected ? "Verbunden" : "Wartet");
+}
+
+function getMachineNote(machine) {
+  if (machine.status === "blocked") return "Das naechste Band ist voll. Loese den Stau oder baue mehr Weg.";
+  if (machine.status === "no-source") return "Diese Fabrik muss naeher an Baum, Stein oder Erz stehen.";
+  if (machine.status === "no-output") return "Setze ein passendes Foerderband direkt an den Ausgang.";
+  if (machine.type === "storageUnit") return "Gruen ist Eingang, Blau ist Ausgang. Das Lager zaehlt extra zum Hauptlager.";
+  if (machine.type?.startsWith("conveyor")) return "Items folgen bei jedem Band neu der Richtung dieses Teils.";
+  return "Diese Maschine produziert automatisch, wenn Quelle und Foerderband passen.";
+}
+
+function getResourceLabel(resource) {
+  return {
+    coin: "Coin",
+    wood: "Holz",
+    stone: "Stein",
+    iron: "Eisen",
+  }[resource] ?? resource;
+}
+
 function showWarehousePanel() {
   document.querySelector("#menuPanel").hidden = true;
   document.querySelector("#shopPanel").hidden = true;
   document.querySelector("#buildPanel").hidden = true;
+  document.querySelector("#machineInfoPanel").hidden = true;
   document.querySelector("#warehousePanel").hidden = false;
 }
 

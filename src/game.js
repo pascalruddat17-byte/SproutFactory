@@ -1,8 +1,8 @@
 (() => {
 const { CONFIG } = window.Sproutworks;
 const { drawWorld, isPointInWarehouse } = window.Sproutworks.world;
-const { demolishBuildableAt, drawBuildPreview, drawDemolishPreview, drawHarvestAnimation, drawMovePreview, getPlacementErrorMessage, handleMoveToolAt, harvestResourceAt, tryPlaceBuildable, updateHarvestAnimation, updateMachines } = window.Sproutworks.machines;
-const { createInput, setupUi, showToast, showWarehousePanel, setBuildHintVisible, updateFactoryStatus, updateResourceCounters } = window.Sproutworks.ui;
+const { demolishBuildableAt, drawBuildPreview, drawDemolishPreview, drawHarvestAnimation, drawMovePreview, getMachineAtWorld, getPlacementErrorMessage, handleMoveToolAt, harvestResourceAt, tryPlaceBuildable, updateHarvestAnimation, updateMachines } = window.Sproutworks.machines;
+const { createInput, setupUi, showMachineInfoPanel, showToast, showWarehousePanel, setBuildHintVisible, updateFactoryStatus, updateResourceCounters } = window.Sproutworks.ui;
 const { state } = window.Sproutworks;
 const { saveGame } = window.Sproutworks.save;
 
@@ -161,6 +161,12 @@ function handleClicks() {
 
     if (state.harvestMode) {
       harvestResourceAt(worldX, worldY);
+      return;
+    }
+
+    const machine = getMachineAtWorld(worldX, worldY);
+    if (machine) {
+      showMachineInfoPanel(machine);
       return;
     }
 
