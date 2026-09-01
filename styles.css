@@ -754,6 +754,17 @@ button {
   text-align: right;
 }
 
+.machine-info-select-row select {
+  min-width: 98px;
+  padding: 6px 8px;
+  color: #2d3526;
+  background: #fffdf1;
+  border: 2px solid #9aae82;
+  border-radius: 6px;
+  font: inherit;
+  font-weight: 900;
+}
+
 .machine-info-note {
   margin: 0;
   padding: 9px 10px;

@@ -41,6 +41,7 @@ function saveGame() {
         heightTiles: machine.heightTiles,
         rotation: machine.rotation,
         mirrored: Boolean(machine.mirrored),
+        filterResource: machine.filterResource,
         productionTimer: machine.productionTimer ?? 0,
         outputTimer: machine.outputTimer ?? 0,
         outputIndex: machine.outputIndex ?? 0,
@@ -145,6 +146,7 @@ function sanitizeMachine(machine) {
     heightTiles: footprint.height,
     rotation: Math.max(0, Math.floor(Number(machine.rotation) || 0)) % 4,
     mirrored: Boolean(machine.mirrored),
+    filterResource: sanitizeFilterResource(machine.filterResource),
     productionTimer: Number(machine.productionTimer) || 0,
     outputTimer: Number(machine.outputTimer) || 0,
     outputIndex: Math.max(0, Math.floor(Number(machine.outputIndex) || 0)),
@@ -152,6 +154,10 @@ function sanitizeMachine(machine) {
     active: false,
     connected: false,
   };
+}
+
+function sanitizeFilterResource(resource) {
+  return ["wood", "stone", "iron"].includes(resource) ? resource : "wood";
 }
 
 function sanitizeMachineStorage(storage) {

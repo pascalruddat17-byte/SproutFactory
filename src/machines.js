@@ -39,6 +39,7 @@ function createBuildable(type, tileX, tileY) {
     heightTiles: footprint.height,
     rotation: state.buildRotation,
     mirrored: state.buildMirrored,
+    filterResource: type === "conveyorFilter" ? "wood" : undefined,
     productionTimer: 0,
     active: false,
     connected: false,
@@ -691,6 +692,7 @@ function getConveyorInputs(conveyor) {
   const rotation = conveyor.rotation % 4;
   if (conveyor.type === "conveyorStraight") return [rotateDir(3, rotation)];
   if (conveyor.type === "conveyorConditional") return [rotateDir(3, rotation)];
+  if (conveyor.type === "conveyorFilter") return [rotateDir(3, rotation)];
   if (conveyor.type === "conveyorCorner") return [rotateDir(conveyor.mirrored ? 2 : 0, rotation)];
   if (conveyor.type === "conveyorMerger") return rotateDirs([3, 0, 2], rotation);
   if (conveyor.type === "conveyorSplitter") return [rotateDir(3, rotation)];
@@ -701,6 +703,7 @@ function getConveyorOutputs(conveyor) {
   const rotation = conveyor.rotation % 4;
   if (conveyor.type === "conveyorStraight") return [rotateDir(1, rotation)];
   if (conveyor.type === "conveyorConditional") return [rotateDir(1, rotation)];
+  if (conveyor.type === "conveyorFilter") return [rotateDir(1, rotation)];
   if (conveyor.type === "conveyorCorner") return [rotateDir(1, rotation)];
   if (conveyor.type === "conveyorMerger") return [rotateDir(1, rotation)];
   if (conveyor.type === "conveyorSplitter") return rotateDirs([1, 0, 2], rotation);
@@ -712,7 +715,7 @@ function isConveyor(machine) {
 }
 
 function isConveyorType(type) {
-  return type === "conveyorStraight" || type === "conveyorCorner" || type === "conveyorMerger" || type === "conveyorSplitter" || type === "conveyorConditional";
+  return type === "conveyorStraight" || type === "conveyorCorner" || type === "conveyorMerger" || type === "conveyorSplitter" || type === "conveyorConditional" || type === "conveyorFilter";
 }
 
 function oppositeDir(dirIndex) {
@@ -1014,6 +1017,7 @@ function updateItemRouteAtConveyor(item) {
     if (!nextMachine || !isConveyor(nextMachine)) continue;
     if (!getConveyorInputs(nextMachine).includes(oppositeDir(dirIndex))) continue;
     if (nextMachine.type === "conveyorConditional" && !canConditionalConveyorPass(nextMachine, item.type)) continue;
+    if (nextMachine.type === "conveyorFilter" && nextMachine.filterResource !== item.type) continue;
     if (isTileOccupiedByWaitingItem(nextTile.tileX, nextTile.tileY, item)) continue;
 
     candidates.push({
@@ -1475,7 +1479,7 @@ function drawConveyor(ctx, conveyor, time) {
   ctx.setLineDash([12, 12]);
   ctx.lineDashOffset = -(time * 0.035) % 24;
   ctx.beginPath();
-  if (conveyor.type === "conveyorStraight" || conveyor.type === "conveyorConditional") {
+  if (conveyor.type === "conveyorStraight" || conveyor.type === "conveyorConditional" || conveyor.type === "conveyorFilter") {
     ctx.moveTo(-size / 2 + 10, 0);
     ctx.lineTo(size / 2 - 10, 0);
     ctx.stroke();
@@ -1500,8 +1504,28 @@ function drawConveyor(ctx, conveyor, time) {
   if (conveyor.type === "conveyorConditional") {
     drawConditionalConveyorMark(ctx, conveyor);
   }
+  if (conveyor.type === "conveyorFilter") {
+    drawFilterConveyorMark(ctx, conveyor);
+  }
 
   ctx.restore();
+}
+
+function drawFilterConveyorMark(ctx, conveyor) {
+  const resource = conveyor.filterResource ?? "wood";
+  ctx.setLineDash([]);
+  ctx.fillStyle = resource === "stone" ? "#aeb2aa" : resource === "iron" ? "#8b9da2" : "#c87838";
+  roundedRect(ctx, -15, -24, 30, 18, 5);
+  ctx.fill();
+  ctx.strokeStyle = resource === "stone" ? "#6f766e" : resource === "iron" ? "#516368" : "#744424";
+  ctx.lineWidth = 3;
+  ctx.stroke();
+
+  ctx.fillStyle = "#fff7df";
+  ctx.font = "900 13px Trebuchet MS, sans-serif";
+  ctx.textAlign = "center";
+  ctx.textBaseline = "middle";
+  ctx.fillText({ wood: "H", stone: "S", iron: "E" }[resource] ?? "?", 0, -15);
 }
 
 function drawConditionalConveyorMark(ctx, conveyor) {

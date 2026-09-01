@@ -111,6 +111,7 @@ function setupUi(input) {
   const buildConveyorMergerButton = document.querySelector("#buildConveyorMergerButton");
   const buildConveyorSplitterButton = document.querySelector("#buildConveyorSplitterButton");
   const buildConveyorConditionalButton = document.querySelector("#buildConveyorConditionalButton");
+  const buildConveyorFilterButton = document.querySelector("#buildConveyorFilterButton");
   const buildStorageUnitButton = document.querySelector("#buildStorageUnitButton");
   const statusToast = document.querySelector("#statusToast");
   const categoryTabs = document.querySelectorAll(".category-tab");
@@ -145,6 +146,7 @@ function setupUi(input) {
     [buildConveyorMergerButton, "conveyorMerger"],
     [buildConveyorSplitterButton, "conveyorSplitter"],
     [buildConveyorConditionalButton, "conveyorConditional"],
+    [buildConveyorFilterButton, "conveyorFilter"],
     [buildStorageUnitButton, "storageUnit"],
   ];
 
@@ -397,6 +399,10 @@ function setupUi(input) {
     startBuildMode("conveyorConditional");
   });
 
+  buildConveyorFilterButton.addEventListener("click", () => {
+    startBuildMode("conveyorFilter");
+  });
+
   buildStorageUnitButton.addEventListener("click", () => {
     startBuildMode("storageUnit");
   });
@@ -609,6 +615,7 @@ function getBuildName(type) {
     conveyorMerger: "Zusammenfuehrer",
     conveyorSplitter: "Splitter",
     conveyorConditional: "Bedingungsfoerderband",
+    conveyorFilter: "Filterfoerderband",
     storageUnit: "Lagerbauteil",
   }[type] ?? "dieses Teil";
 }
@@ -663,6 +670,18 @@ function showMachineInfoPanel(machine) {
       <div class="machine-info-row"><span>${getResourceLabel(resource)}</span><strong>${amount}/${CONFIG.storage.unitMax}</strong></div>
     `).join("")
     : "";
+  const filterRow = machine.type === "conveyorFilter"
+    ? `
+      <label class="machine-info-row machine-info-select-row">
+        <span>Erlaubtes Item</span>
+        <select id="filterResourceSelect">
+          <option value="wood"${machine.filterResource === "wood" ? " selected" : ""}>Holz</option>
+          <option value="stone"${machine.filterResource === "stone" ? " selected" : ""}>Stein</option>
+          <option value="iron"${machine.filterResource === "iron" ? " selected" : ""}>Eisen</option>
+        </select>
+      </label>
+    `
+    : "";
 
   title.textContent = getBuildName(machine.type);
   body.innerHTML = `
@@ -670,9 +689,17 @@ function showMachineInfoPanel(machine) {
     <div class="machine-info-row"><span>Groesse</span><strong>${machine.widthTiles ?? 1}x${machine.heightTiles ?? 1}</strong></div>
     <div class="machine-info-row"><span>Richtung</span><strong>${rotationText}${machine.mirrored ? " gespiegelt" : ""}</strong></div>
     <div class="machine-info-row"><span>Baumaterial</span><strong>${costText}</strong></div>
+    ${filterRow}
     ${storageRows}
     <p class="machine-info-note">${getMachineNote(machine)}</p>
   `;
+
+  const filterSelect = document.querySelector("#filterResourceSelect");
+  filterSelect?.addEventListener("change", () => {
+    machine.filterResource = filterSelect.value;
+    window.Sproutworks.save?.markSaveDirty();
+    showToast(`Filter: nur ${getResourceLabel(machine.filterResource)}.`);
+  });
 
   document.querySelector("#menuPanel").hidden = true;
   document.querySelector("#shopPanel").hidden = true;
@@ -697,6 +724,7 @@ function getMachineNote(machine) {
   if (machine.status === "no-output") return "Setze ein passendes Foerderband direkt an den Ausgang.";
   if (machine.type === "storageUnit") return "Gruen ist Eingang, Blau ist Ausgang. Das Lager zaehlt extra zum Hauptlager.";
   if (machine.type === "conveyorConditional") return "Dieses Band laesst Items nur rein, wenn dahinter noch Lagerplatz erreichbar ist.";
+  if (machine.type === "conveyorFilter") return "Dieses Band blockt alle Items ausser der ausgewaehlten Ressource.";
   if (machine.type?.startsWith("conveyor")) return "Items folgen bei jedem Band neu der Richtung dieses Teils.";
   return "Diese Maschine produziert automatisch, wenn Quelle und Foerderband passen.";
 }
