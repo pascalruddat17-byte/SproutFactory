@@ -560,11 +560,12 @@ function getWarehouseInputTiles() {
   const size = CONFIG.world.tileSize;
   const left = Math.floor((warehouse.x - warehouse.width / 2) / size);
   const top = Math.floor((warehouse.y - 80) / size);
+  const right = Math.floor((warehouse.x + warehouse.width / 2) / size);
   return [
-    { tileX: left + 2, tileY: top, direction: 2 },
-    { tileX: left + 4, tileY: top, direction: 2 },
-    { tileX: left + 2, tileY: top + 3, direction: 0 },
-    { tileX: left + 4, tileY: top + 3, direction: 0 },
+    { tileX: left, tileY: top + 1, direction: 1 },
+    { tileX: left, tileY: top + 2, direction: 1 },
+    { tileX: right, tileY: top + 1, direction: 3 },
+    { tileX: right, tileY: top + 2, direction: 3 },
   ];
 }
 

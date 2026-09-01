@@ -527,15 +527,15 @@ function drawWarehouseInput(ctx) {
     ctx.stroke();
 
     ctx.fillStyle = "#ffd36a";
+    ctx.rotate((Math.PI / 2) * ((inputTile.direction ?? 1) - 1));
     ctx.beginPath();
-    const flip = inputTile.direction === 0 ? -1 : 1;
-    ctx.moveTo(-14, -7 * flip);
-    ctx.lineTo(6, -7 * flip);
-    ctx.lineTo(6, -16 * flip);
+    ctx.moveTo(-14, -7);
+    ctx.lineTo(6, -7);
+    ctx.lineTo(6, -16);
     ctx.lineTo(23, 0);
-    ctx.lineTo(6, 16 * flip);
-    ctx.lineTo(6, 7 * flip);
-    ctx.lineTo(-14, 7 * flip);
+    ctx.lineTo(6, 16);
+    ctx.lineTo(6, 7);
+    ctx.lineTo(-14, 7);
     ctx.closePath();
     ctx.fill();
     ctx.restore();
