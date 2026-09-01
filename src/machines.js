@@ -1256,13 +1256,25 @@ function getFirstFreeLane(tileX, tileY, item, occupiedTiles) {
 
 function getTileLaneCapacity(tileX, tileY) {
   const machine = getMachineAtTile(tileX, tileY);
-  if (!machine || !isConveyor(machine)) return 1;
-  return getConveyorLaneCapacity(machine);
+  if (machine && isConveyor(machine)) return getConveyorLaneCapacity(machine);
+  if (isWarehouseInputTile(tileX, tileY) || getStorageInputTargetAtTile(tileX, tileY) || isTrashCanTile(tileX, tileY)) {
+    return getIncomingConveyorLaneCapacity(tileX, tileY);
+  }
+  return 1;
 }
 
 function getConveyorLaneCapacity(conveyor) {
   if (!canUpgradeConveyorLanes(conveyor)) return 1;
   return Math.max(1, Math.min(CONFIG.machines.conveyorLaneUpgrade.maxLevel, Math.floor(Number(conveyor.laneLevel) || 1)));
+}
+
+function getIncomingConveyorLaneCapacity(tileX, tileY) {
+  return DIRS.reduce((capacity, dir, directionFromTarget) => {
+    const conveyor = getMachineAtTile(tileX + dir.dx, tileY + dir.dy);
+    if (!conveyor || !isConveyor(conveyor)) return capacity;
+    if (!getConveyorOutputs(conveyor).includes(oppositeDir(directionFromTarget))) return capacity;
+    return Math.max(capacity, getConveyorLaneCapacity(conveyor));
+  }, 1);
 }
 
 function canMergerAcceptInput(merger, inputDirection, item, occupiedTiles) {
