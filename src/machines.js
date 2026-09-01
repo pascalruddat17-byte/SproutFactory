@@ -151,6 +151,35 @@ function getPlacementErrorMessage(type, worldX, worldY) {
   }[placement.reason] ?? "Hier kannst du das nicht platzieren.";
 }
 
+function getPlacementHintText(placement, type) {
+  if (placement.ok) return `Baubar: ${getBuildName(type)}`;
+  return {
+    "outside-map": "Ausserhalb der Map",
+    warehouse: "Lager bleibt frei",
+    occupied: "Kachel belegt",
+    obstacle: "Natur blockiert",
+    "port-blocked": "Lager-Port blockiert",
+    "no-source": "Naeher an Ressource",
+  }[placement.reason] ?? "Nicht platzierbar";
+}
+
+function getBuildName(type) {
+  return {
+    woodCollector: "Holzfabrik",
+    stoneCollector: "Steinfabrik",
+    ironCollector: "Metallfabrik",
+    conveyorStraight: "Foerderband",
+    conveyorCorner: "Eckfoerderband",
+    conveyorMerger: "Zusammenfuehrer",
+    conveyorSplitter: "Splitter",
+    conveyorConditional: "Bedingungsband",
+    conveyorOverflow: "Ueberlauf-Band",
+    conveyorFilter: "Filterband",
+    storageUnit: "Lager",
+    trashCan: "Muelleimer",
+  }[type] ?? "Teil";
+}
+
 function demolishBuildableAt(worldX, worldY) {
   const tile = worldToTile(worldX, worldY);
   const machine = getMachineAtTile(tile.tileX, tile.tileY);
@@ -357,6 +386,7 @@ function drawBuildPreview(ctx, camera, pointerWorld, time) {
   if (state.buildMode === "storageUnit") drawStorageUnit(ctx, preview);
   if (state.buildMode === "trashCan") drawTrashCan(ctx, preview);
   if (isConveyor(preview)) drawConveyor(ctx, preview, time);
+  drawPlacementLabel(ctx, center.x, tile.y - 44, getPlacementHintText(placement, state.buildMode), placement.ok);
 
   ctx.restore();
 }
@@ -1471,6 +1501,23 @@ function drawStoragePort(ctx, port, color, label) {
   ctx.textAlign = "center";
   ctx.textBaseline = "middle";
   ctx.fillText(label, 0, 0);
+  ctx.restore();
+}
+
+function drawPlacementLabel(ctx, x, y, text, ok) {
+  ctx.save();
+  ctx.font = "900 18px Trebuchet MS, sans-serif";
+  ctx.textAlign = "center";
+  ctx.textBaseline = "middle";
+  const width = Math.min(280, Math.max(116, ctx.measureText(text).width + 28));
+  ctx.fillStyle = ok ? "rgba(63, 152, 62, 0.92)" : "rgba(184, 75, 61, 0.94)";
+  roundedRect(ctx, x - width / 2, y - 17, width, 34, 8);
+  ctx.fill();
+  ctx.strokeStyle = "rgba(255, 247, 223, 0.78)";
+  ctx.lineWidth = 3;
+  ctx.stroke();
+  ctx.fillStyle = "#fff7df";
+  ctx.fillText(text, x, y + 1);
   ctx.restore();
 }
 
