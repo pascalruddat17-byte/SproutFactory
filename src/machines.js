@@ -1375,10 +1375,9 @@ function drawItems(ctx) {
     const capacity = item.currentTile ? getTileLaneCapacity(item.currentTile.tileX, item.currentTile.tileY) : 1;
     const lane = Math.max(0, Math.min(capacity - 1, Math.floor(Number(item.lane) || 0)));
     const laneOffset = getLaneOffset(lane, capacity);
-    const from = item.path[item.segment] ?? { x: item.x - 1, y: item.y };
-    const to = item.path[item.segment + 1] ?? item.path[item.segment] ?? { x: item.x + 1, y: item.y };
-    const dx = to.x - from.x;
-    const dy = to.y - from.y;
+    const travel = getItemRenderTravel(item);
+    const dx = travel.dx;
+    const dy = travel.dy;
     const length = Math.max(1, Math.hypot(dx, dy));
     const offsetX = (-dy / length) * laneOffset;
     const offsetY = (dx / length) * laneOffset;
@@ -1409,6 +1408,23 @@ function drawItems(ctx) {
     ctx.stroke();
     ctx.restore();
   });
+}
+
+function getItemRenderTravel(item) {
+  const from = item.path[item.segment];
+  const to = item.path[item.segment + 1];
+  if (from && to) return { dx: to.x - from.x, dy: to.y - from.y };
+
+  if (item.currentTile) {
+    const conveyor = getMachineAtTile(item.currentTile.tileX, item.currentTile.tileY);
+    const outputDirection = conveyor && isConveyor(conveyor) ? getConveyorOutputs(conveyor)[0] : null;
+    if (outputDirection !== null && outputDirection !== undefined) {
+      const dir = DIRS[outputDirection];
+      return { dx: dir.dx, dy: dir.dy };
+    }
+  }
+
+  return { dx: 1, dy: 0 };
 }
 
 function getLaneOffset(lane, capacity) {
