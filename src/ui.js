@@ -565,6 +565,7 @@ window.Sproutworks.ui = {
   setupUi,
   setBuildHintVisible,
   updateResourceCounters,
+  updateFactoryStatus,
 };
 
 function showToast(message) {
@@ -599,6 +600,28 @@ function updateResourceCounters(resourceBar, resources) {
     const max = resourceName === "coin" ? "" : `/${CONFIG.storage.resourceMax}`;
     counter.querySelector("strong").textContent = `${value}${max}`;
   });
+}
+
+function updateFactoryStatus(factoryStatus) {
+  if (!factoryStatus) return;
+  const { state } = window.Sproutworks;
+  const factories = state.machines.filter((machine) => (
+    machine.type === "woodCollector"
+    || machine.type === "stoneCollector"
+    || machine.type === "ironCollector"
+  ));
+  const storages = state.machines.filter((machine) => machine.type === "storageUnit");
+  const activeFactories = factories.filter((machine) => machine.status === "working").length;
+  const blocked = state.machines.filter((machine) => machine.status === "blocked").length;
+  const idle = factories.filter((machine) => machine.status === "no-source" || machine.status === "no-output").length;
+
+  factoryStatus.innerHTML = `
+    <div class="factory-status-row"><span>Fabriken aktiv</span><strong>${activeFactories}/${factories.length}</strong></div>
+    <div class="factory-status-row"><span>Blockiert</span><strong>${blocked}</strong></div>
+    <div class="factory-status-row"><span>Wartet</span><strong>${idle}</strong></div>
+    <div class="factory-status-row"><span>Items auf Band</span><strong>${state.items.length}</strong></div>
+    <div class="factory-status-row"><span>Extra-Lager</span><strong>${storages.length}</strong></div>
+  `;
 }
 
 function showWarehousePanel() {

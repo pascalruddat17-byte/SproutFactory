@@ -2,13 +2,14 @@
 const { CONFIG } = window.Sproutworks;
 const { drawWorld, isPointInWarehouse } = window.Sproutworks.world;
 const { demolishBuildableAt, drawBuildPreview, drawDemolishPreview, drawHarvestAnimation, drawMovePreview, handleMoveToolAt, harvestResourceAt, tryPlaceBuildable, updateHarvestAnimation, updateMachines } = window.Sproutworks.machines;
-const { createInput, setupUi, showToast, showWarehousePanel, setBuildHintVisible, updateResourceCounters } = window.Sproutworks.ui;
+const { createInput, setupUi, showToast, showWarehousePanel, setBuildHintVisible, updateFactoryStatus, updateResourceCounters } = window.Sproutworks.ui;
 const { state } = window.Sproutworks;
 const { saveGame } = window.Sproutworks.save;
 
 const canvas = document.querySelector("#gameCanvas");
 const ctx = canvas.getContext("2d");
 const resourceBar = document.querySelector("#resourceBar");
+const factoryStatus = document.querySelector("#factoryStatus");
 const input = createInput();
 const camera = {
   x: CONFIG.camera.startX,
@@ -42,6 +43,7 @@ function tick(now) {
   handleClicks();
   autoSave(now);
   updateResourceCounters(resourceBar, state.resources);
+  updateFactoryStatus(factoryStatus);
   draw(now);
 
   requestAnimationFrame(tick);

@@ -853,6 +853,37 @@ button {
   pointer-events: none;
 }
 
+.factory-status {
+  position: fixed;
+  left: max(18px, env(safe-area-inset-left));
+  bottom: calc(max(18px, env(safe-area-inset-bottom)) + 168px);
+  z-index: 7;
+  display: grid;
+  gap: 5px;
+  min-width: 184px;
+  padding: 10px 12px;
+  color: #2d3526;
+  background: rgba(255, 247, 223, 0.88);
+  border: 3px solid rgba(77, 111, 59, 0.68);
+  border-radius: 8px;
+  box-shadow: 0 10px 24px var(--shadow);
+  font-size: 13px;
+  font-weight: 900;
+  pointer-events: none;
+}
+
+.factory-status-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+}
+
+.factory-status strong {
+  color: #315a62;
+  font-size: 15px;
+}
+
 .build-hint {
   position: fixed;
   left: 50%;
@@ -1047,6 +1078,14 @@ button {
 
   .harvest-button {
     left: 18px;
+  }
+
+  .factory-status {
+    left: 12px;
+    bottom: 86px;
+    min-width: 154px;
+    padding: 8px 10px;
+    font-size: 12px;
   }
 
   .build-tray {

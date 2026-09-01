@@ -58,14 +58,17 @@ function updateMachines(delta) {
 
     const route = getConveyorRoute(machine);
     const startConveyor = getStartingConveyor(machine);
+    const hasSource = productionConfig.hasSource(machine.x, machine.y, productionConfig.range);
     machine.connected = route.reachesWarehouse;
-    machine.active = productionConfig.hasSource(machine.x, machine.y, productionConfig.range) && Boolean(startConveyor);
+    machine.active = hasSource && Boolean(startConveyor);
+    machine.status = !hasSource ? "no-source" : !startConveyor ? "no-output" : "working";
     if (!machine.active) return;
 
     machine.productionTimer = Math.min(machine.productionTimer + delta, productionConfig.productionSeconds * 2);
     while (machine.productionTimer >= productionConfig.productionSeconds) {
       if (!canSpawnItemAt(startConveyor.conveyor)) {
         machine.productionTimer = productionConfig.productionSeconds;
+        machine.status = "blocked";
         break;
       }
       machine.productionTimer -= productionConfig.productionSeconds;
@@ -734,12 +737,14 @@ function updateStorageUnits(delta) {
     if (!storage.storage) storage.storage = createEmptyMachineStorage();
     const output = getStorageOutputConveyor(storage);
     storage.active = Boolean(output) && getStorageFill(storage) > 0;
+    storage.status = getStorageFill(storage) <= 0 ? "empty" : !output ? "no-output" : "working";
     if (!storage.active) return;
 
     storage.outputTimer = (storage.outputTimer ?? 0) + delta;
     while (storage.outputTimer >= CONFIG.machines.storageUnit.outputSeconds) {
       if (!canSpawnItemAt(output.conveyor)) {
         storage.outputTimer = CONFIG.machines.storageUnit.outputSeconds;
+        storage.status = "blocked";
         break;
       }
       const resource = takeStorageOutputResource(storage);
