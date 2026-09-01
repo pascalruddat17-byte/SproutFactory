@@ -89,8 +89,8 @@ const grass = Array.from({ length: 310 }, (_, i) => {
 const warehouse = {
   x: CONFIG.world.width * 0.5,
   y: CONFIG.world.height * 0.5,
-  width: 332,
-  height: 166,
+  width: 420,
+  height: 210,
 };
 
 let obstacles = [
@@ -255,8 +255,8 @@ function drawWorld(ctx, camera, time) {
   drawGround(ctx, width, height);
   drawScenery(ctx, time);
   window.Sproutworks.machines.drawMachines(ctx, time);
-  drawWarehouseInput(ctx);
   drawStartingWarehouse(ctx);
+  drawWarehouseInput(ctx);
   ctx.restore();
 }
 
@@ -429,46 +429,46 @@ function drawStartingWarehouse(ctx) {
 
   ctx.fillStyle = "rgba(39, 48, 35, 0.13)";
   ctx.beginPath();
-  ctx.ellipse(0, 92, 190, 52, 0, 0, Math.PI * 2);
+  ctx.ellipse(0, 112, 236, 62, 0, 0, Math.PI * 2);
   ctx.fill();
 
   ctx.fillStyle = "#d5d9d2";
-  roundedRect(ctx, -150, -62, 300, 150, 8);
+  roundedRect(ctx, -192, -80, 384, 190, 8);
   ctx.fill();
   ctx.strokeStyle = "#68736e";
   ctx.lineWidth = 5;
   ctx.stroke();
 
   ctx.fillStyle = "#f7f2df";
-  roundedRect(ctx, -132, -44, 264, 40, 6);
+  roundedRect(ctx, -166, -58, 332, 42, 6);
   ctx.fill();
   ctx.fillStyle = "#6ca9c8";
-  for (let i = 0; i < 6; i += 1) {
-    roundedRect(ctx, -122 + i * 42, -36, 32, 24, 4);
+  for (let i = 0; i < 8; i += 1) {
+    roundedRect(ctx, -154 + i * 39, -49, 29, 23, 4);
     ctx.fill();
   }
 
   ctx.fillStyle = "#59676a";
-  roundedRect(ctx, -68, 5, 136, 83, 6);
+  roundedRect(ctx, -78, 5, 156, 102, 6);
   ctx.fill();
   ctx.strokeStyle = "#333f42";
   ctx.lineWidth = 4;
-  for (let y = 18; y < 78; y += 15) {
+  for (let y = 18; y < 96; y += 15) {
     ctx.beginPath();
-    ctx.moveTo(-62, y);
-    ctx.lineTo(62, y);
+    ctx.moveTo(-70, y);
+    ctx.lineTo(70, y);
     ctx.stroke();
   }
 
   ctx.fillStyle = "#ffc04d";
-  roundedRect(ctx, -52, 44, 104, 36, 5);
+  roundedRect(ctx, -58, 58, 116, 40, 5);
   ctx.fill();
 
   ctx.fillStyle = "#315a62";
-  roundedRect(ctx, -166, -78, 332, 28, 7);
+  roundedRect(ctx, -210, -98, 420, 32, 7);
   ctx.fill();
   ctx.fillStyle = "#4fa4c8";
-  roundedRect(ctx, -152, -72, 304, 9, 4);
+  roundedRect(ctx, -194, -91, 388, 10, 4);
   ctx.fill();
 
   ctx.fillStyle = "#ef9c32";
@@ -511,37 +511,35 @@ function drawStartingWarehouse(ctx) {
 }
 
 function drawWarehouseInput(ctx) {
-  const inputTile = window.Sproutworks.machines.getWarehouseInputTile();
+  const inputTiles = window.Sproutworks.machines.getWarehouseInputTiles();
   const size = CONFIG.world.tileSize;
-  const x = inputTile.tileX * size + size / 2;
-  const y = inputTile.tileY * size + size / 2;
+  inputTiles.forEach((inputTile) => {
+    const x = inputTile.tileX * size + size / 2;
+    const y = inputTile.tileY * size + size / 2;
 
-  ctx.save();
-  ctx.translate(x, y);
-  ctx.fillStyle = "rgba(39, 48, 35, 0.12)";
-  ctx.beginPath();
-  ctx.ellipse(0, 16, 44, 14, 0, 0, Math.PI * 2);
-  ctx.fill();
+    ctx.save();
+    ctx.translate(x, y);
+    ctx.fillStyle = "#39484b";
+    roundedRect(ctx, -28, -20, 56, 40, 7);
+    ctx.fill();
+    ctx.strokeStyle = "#f0a13b";
+    ctx.lineWidth = 4;
+    ctx.stroke();
 
-  ctx.fillStyle = "#39484b";
-  roundedRect(ctx, -30, -24, 60, 48, 8);
-  ctx.fill();
-  ctx.strokeStyle = "#f0a13b";
-  ctx.lineWidth = 4;
-  ctx.stroke();
-
-  ctx.fillStyle = "#ffd36a";
-  ctx.beginPath();
-  ctx.moveTo(-14, -8);
-  ctx.lineTo(8, -8);
-  ctx.lineTo(8, -18);
-  ctx.lineTo(25, 0);
-  ctx.lineTo(8, 18);
-  ctx.lineTo(8, 8);
-  ctx.lineTo(-14, 8);
-  ctx.closePath();
-  ctx.fill();
-  ctx.restore();
+    ctx.fillStyle = "#ffd36a";
+    ctx.beginPath();
+    const flip = inputTile.direction === 0 ? -1 : 1;
+    ctx.moveTo(-14, -7 * flip);
+    ctx.lineTo(6, -7 * flip);
+    ctx.lineTo(6, -16 * flip);
+    ctx.lineTo(23, 0);
+    ctx.lineTo(6, 16 * flip);
+    ctx.lineTo(6, 7 * flip);
+    ctx.lineTo(-14, 7 * flip);
+    ctx.closePath();
+    ctx.fill();
+    ctx.restore();
+  });
 }
 
 function drawCrate(ctx, x, y, size) {

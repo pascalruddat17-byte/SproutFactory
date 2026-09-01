@@ -162,8 +162,8 @@ window.Sproutworks.CONFIG = {
         iron: 75,
         coin: 50,
       },
-      widthTiles: 2,
-      heightTiles: 2,
+      widthTiles: 4,
+      heightTiles: 3,
     },
   },
 };
