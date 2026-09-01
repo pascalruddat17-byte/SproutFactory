@@ -16,6 +16,11 @@ const camera = {
   y: CONFIG.camera.startY,
   zoom: 1,
 };
+const MINIMAP = {
+  width: 184,
+  height: 134,
+  margin: 16,
+};
 
 let lastTime = performance.now();
 let lastSaveTime = performance.now();
@@ -137,6 +142,8 @@ function zoomAt(factor, screenX, screenY) {
 
 function handleClicks() {
   input.clickEvents.splice(0).forEach((event) => {
+    if (handleMinimapClick(event.screenX, event.screenY)) return;
+
     const worldX = camera.x + event.screenX / camera.zoom;
     const worldY = camera.y + event.screenY / camera.zoom;
     if (state.buildMode) {
@@ -188,6 +195,33 @@ function clamp(value, min, max) {
   return Math.max(min, Math.min(max, value));
 }
 
+function getMinimapBounds() {
+  return {
+    x: MINIMAP.margin,
+    y: Math.max(92, height - MINIMAP.height - 96),
+    width: MINIMAP.width,
+    height: MINIMAP.height,
+  };
+}
+
+function handleMinimapClick(screenX, screenY) {
+  const map = getMinimapBounds();
+  if (
+    screenX < map.x
+    || screenX > map.x + map.width
+    || screenY < map.y
+    || screenY > map.y + map.height
+  ) return false;
+
+  const worldX = ((screenX - map.x) / map.width) * CONFIG.world.width;
+  const worldY = ((screenY - map.y) / map.height) * CONFIG.world.height;
+  camera.x = worldX - width / (2 * camera.zoom);
+  camera.y = worldY - height / (2 * camera.zoom);
+  clampCamera();
+  showToast("Kamera zur Mini-Map-Position bewegt.");
+  return true;
+}
+
 function updateEffects(delta) {
   state.effects = state.effects.filter((effect) => {
     effect.time += delta;
@@ -219,25 +253,23 @@ function drawEffects(ctx, camera) {
 }
 
 function drawMinimap() {
-  const mapWidth = 184;
-  const mapHeight = 134;
-  const margin = 16;
-  const x = margin;
-  const y = Math.max(92, height - mapHeight - 96);
-  const scaleX = mapWidth / CONFIG.world.width;
-  const scaleY = mapHeight / CONFIG.world.height;
+  const map = getMinimapBounds();
+  const x = map.x;
+  const y = map.y;
+  const scaleX = map.width / CONFIG.world.width;
+  const scaleY = map.height / CONFIG.world.height;
   const world = window.Sproutworks.world;
 
   ctx.save();
   ctx.globalAlpha = 0.95;
   ctx.fillStyle = "rgba(255, 247, 223, 0.9)";
-  ctx.fillRect(x - 5, y - 5, mapWidth + 10, mapHeight + 10);
+  ctx.fillRect(x - 5, y - 5, map.width + 10, map.height + 10);
   ctx.strokeStyle = "#4d6f3b";
   ctx.lineWidth = 3;
-  ctx.strokeRect(x - 5, y - 5, mapWidth + 10, mapHeight + 10);
+  ctx.strokeRect(x - 5, y - 5, map.width + 10, map.height + 10);
 
   ctx.fillStyle = "#8dce6d";
-  ctx.fillRect(x, y, mapWidth, mapHeight);
+  ctx.fillRect(x, y, map.width, map.height);
 
   ctx.fillStyle = "#2f6f3b";
   world.trees.forEach((tree) => drawMinimapDot(x + tree.x * scaleX, y + tree.y * scaleY, 1.6));
@@ -255,6 +287,10 @@ function drawMinimap() {
   ctx.strokeStyle = "#fff8dd";
   ctx.lineWidth = 2;
   ctx.strokeRect(x + camera.x * scaleX, y + camera.y * scaleY, (width / camera.zoom) * scaleX, (height / camera.zoom) * scaleY);
+  ctx.fillStyle = "#2d3526";
+  ctx.font = "900 11px Trebuchet MS, sans-serif";
+  ctx.textAlign = "center";
+  ctx.fillText("Mini-Map", x + map.width / 2, y + map.height + 16);
   ctx.restore();
 }
 
