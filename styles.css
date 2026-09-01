@@ -629,13 +629,32 @@ button {
   right: max(18px, env(safe-area-inset-right));
   bottom: calc(max(18px, env(safe-area-inset-bottom)) + 64px);
   width: min(390px, calc(100vw - 32px));
+  max-height: min(660px, calc(100vh - 112px));
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-width: thin;
+}
+
+.build-panel::-webkit-scrollbar {
+  width: 10px;
+}
+
+.build-panel::-webkit-scrollbar-thumb {
+  background: rgba(77, 111, 59, 0.5);
+  border: 3px solid rgba(255, 247, 223, 0.96);
+  border-radius: 10px;
 }
 
 .category-tabs {
+  position: sticky;
+  top: -2px;
+  z-index: 1;
   display: grid;
   grid-template-columns: repeat(2, 1fr);
   gap: 7px;
   margin-top: 14px;
+  padding: 4px 0 8px;
+  background: rgba(255, 247, 223, 0.96);
 }
 
 .category-tab {
@@ -1126,6 +1145,7 @@ button {
   .build-panel {
     right: 12px;
     bottom: 78px;
+    max-height: calc(100vh - 168px);
   }
 
   .menu-panel {
