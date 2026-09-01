@@ -17,6 +17,8 @@ const state = {
   sourceClearMode: false,
   harvestCooldown: 0,
   harvestAnimation: null,
+  warehouseOutputTimer: 0,
+  warehouseOutputIndex: 0,
   movingMachineId: null,
   moveRotation: 0,
   moveMirrored: false,
@@ -85,6 +87,8 @@ function loadGame() {
     state.sourceClearMode = false;
     state.harvestCooldown = 0;
     state.harvestAnimation = null;
+    state.warehouseOutputTimer = 0;
+    state.warehouseOutputIndex = 0;
     state.movingMachineId = null;
     state.moveRotation = 0;
     state.moveMirrored = false;
@@ -113,6 +117,8 @@ function resetGame() {
   state.sourceClearMode = false;
   state.harvestCooldown = 0;
   state.harvestAnimation = null;
+  state.warehouseOutputTimer = 0;
+  state.warehouseOutputIndex = 0;
   state.movingMachineId = null;
   state.moveRotation = 0;
   state.moveMirrored = false;

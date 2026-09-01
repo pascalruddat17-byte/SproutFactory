@@ -81,6 +81,8 @@ function updateMachines(delta) {
   });
 
   updateStorageUnits(delta);
+  updateWarehouseOutputs(delta);
+  updateStorageDepotOutputs(delta);
   updateItems(delta);
 }
 
@@ -92,7 +94,7 @@ function canPlaceBuildable(type, worldX, worldY, ignoreId = null) {
   const footprint = getFootprint(type);
   const tiles = getFootprintTiles(tile.tileX, tile.tileY, footprint);
   if (tiles.some((spot) => !isTileInsideWorld(spot.tileX, spot.tileY))) return { ok: false, reason: "outside-map", tile };
-  if (tiles.some((spot) => isWarehouseTile(spot.tileX, spot.tileY) || isWarehouseInputTile(spot.tileX, spot.tileY) || isStoragePortTile(spot.tileX, spot.tileY, ignoreId) || isStorageDepotPortTile(spot.tileX, spot.tileY, ignoreId))) return { ok: false, reason: "warehouse", tile };
+  if (tiles.some((spot) => isWarehouseTile(spot.tileX, spot.tileY) || isWarehouseInputTile(spot.tileX, spot.tileY) || isWarehouseOutputTile(spot.tileX, spot.tileY) || isStoragePortTile(spot.tileX, spot.tileY, ignoreId) || isStorageDepotPortTile(spot.tileX, spot.tileY, ignoreId) || isStorageDepotOutputTile(spot.tileX, spot.tileY, ignoreId))) return { ok: false, reason: "warehouse", tile };
   if (tiles.some((spot) => {
     const machine = getMachineAtTile(spot.tileX, spot.tileY);
     return machine && machine.id !== ignoreId;
@@ -106,6 +108,7 @@ function canPlaceBuildable(type, worldX, worldY, ignoreId = null) {
       !isTileInsideWorld(port.tileX, port.tileY)
       || isWarehouseTile(port.tileX, port.tileY)
       || isWarehouseInputTile(port.tileX, port.tileY)
+      || isWarehouseOutputTile(port.tileX, port.tileY)
       || isTileBlockedByNature(port.tileX, port.tileY)
       || Boolean(getMachineAtTile(port.tileX, port.tileY))
       || isStoragePortTile(port.tileX, port.tileY, ignoreId)
@@ -114,16 +117,21 @@ function canPlaceBuildable(type, worldX, worldY, ignoreId = null) {
 
   if (type === "storageDepot") {
     const placementRotation = state.moveMode && state.movingMachineId ? state.moveRotation : state.buildRotation;
-    const ports = getStorageDepotInputPorts({ type, tileX: tile.tileX, tileY: tile.tileY, rotation: placementRotation });
+    const ports = [
+      ...getStorageDepotInputPorts({ type, tileX: tile.tileX, tileY: tile.tileY, rotation: placementRotation }),
+      ...getStorageDepotOutputPorts({ type, tileX: tile.tileX, tileY: tile.tileY, rotation: placementRotation }),
+    ];
     if (!isStorageDepotInWarehouseRange(tile.tileX, tile.tileY)) return { ok: false, reason: "warehouse-range", tile };
     if (ports.some((port) => (
       !isTileInsideWorld(port.tileX, port.tileY)
       || isWarehouseTile(port.tileX, port.tileY)
       || isWarehouseInputTile(port.tileX, port.tileY)
+      || isWarehouseOutputTile(port.tileX, port.tileY)
       || isTileBlockedByNature(port.tileX, port.tileY)
       || Boolean(getMachineAtTile(port.tileX, port.tileY) && getMachineAtTile(port.tileX, port.tileY).id !== ignoreId)
       || isStoragePortTile(port.tileX, port.tileY, ignoreId)
       || isStorageDepotPortTile(port.tileX, port.tileY, ignoreId)
+      || isStorageDepotOutputTile(port.tileX, port.tileY, ignoreId)
     ))) return { ok: false, reason: "port-blocked", tile };
   }
 
@@ -577,6 +585,23 @@ function getWarehouseInputTargetAtTile(tileX, tileY) {
   return getWarehouseInputTiles().find((input) => input.tileX === tileX && input.tileY === tileY);
 }
 
+function getWarehouseOutputTiles() {
+  const { warehouse } = window.Sproutworks.world;
+  const size = CONFIG.world.tileSize;
+  const left = Math.floor((warehouse.x - warehouse.width / 2) / size);
+  const bottom = Math.floor((warehouse.y - 80 + warehouse.height) / size);
+  return [
+    { tileX: left + 2, tileY: bottom, direction: 2 },
+    { tileX: left + 3, tileY: bottom, direction: 2 },
+    { tileX: left + 4, tileY: bottom, direction: 2 },
+    { tileX: left + 5, tileY: bottom, direction: 2 },
+  ];
+}
+
+function isWarehouseOutputTile(tileX, tileY) {
+  return getWarehouseOutputTiles().some((output) => output.tileX === tileX && output.tileY === tileY);
+}
+
 function isWarehouseTile(tileX, tileY) {
   const center = tileToWorld(tileX, tileY);
   const { warehouse } = window.Sproutworks.world;
@@ -658,6 +683,13 @@ function getStorageDepotInputPorts(depot) {
   return ports[rotation];
 }
 
+function getStorageDepotOutputPorts(depot) {
+  return [
+    { tileX: depot.tileX + 1, tileY: depot.tileY + 3, direction: 2 },
+    { tileX: depot.tileX + 2, tileY: depot.tileY + 3, direction: 2 },
+  ];
+}
+
 function getStorageDepotInputTargetAtTile(tileX, tileY) {
   return getStorageDepots()
     .flatMap((depot) => getStorageDepotInputPorts(depot).map((input) => ({ depot, input })))
@@ -668,6 +700,13 @@ function isStorageDepotPortTile(tileX, tileY, ignoreId = null) {
   return getStorageDepots().some((depot) => {
     if (depot.id === ignoreId) return false;
     return getStorageDepotInputPorts(depot).some((input) => input.tileX === tileX && input.tileY === tileY);
+  });
+}
+
+function isStorageDepotOutputTile(tileX, tileY, ignoreId = null) {
+  return getStorageDepots().some((depot) => {
+    if (depot.id === ignoreId) return false;
+    return getStorageDepotOutputPorts(depot).some((output) => output.tileX === tileX && output.tileY === tileY);
   });
 }
 
@@ -1034,6 +1073,97 @@ function updateStorageUnits(delta) {
   });
 }
 
+function updateWarehouseOutputs(delta) {
+  const outputs = getWarehouseOutputConveyors();
+  if (outputs.length === 0) return;
+
+  state.warehouseOutputTimer = (state.warehouseOutputTimer ?? 0) + delta;
+  while (state.warehouseOutputTimer >= CONFIG.storage.outputSeconds) {
+    let spawned = 0;
+    outputs.forEach((output) => {
+      const amount = getConveyorLaneCapacity(output.conveyor);
+      for (let i = 0; i < amount; i += 1) {
+        const resource = takeWarehouseOutputResource();
+        if (!resource) return;
+        if (!canSpawnItemAt(output.conveyor, resource)) {
+          state.resources[resource] = (state.resources[resource] ?? 0) + 1;
+          return;
+        }
+        spawnOutputResourceItem(output.output, output.conveyor, resource);
+        spawned += 1;
+      }
+    });
+
+    if (spawned <= 0) {
+      state.warehouseOutputTimer = CONFIG.storage.outputSeconds;
+      break;
+    }
+    state.warehouseOutputTimer -= CONFIG.storage.outputSeconds;
+    window.Sproutworks.save?.markSaveDirty();
+  }
+}
+
+function updateStorageDepotOutputs(delta) {
+  getStorageDepots().forEach((depot) => {
+    const outputs = getStorageDepotOutputConveyors(depot);
+    depot.active = outputs.length > 0;
+    if (!depot.active) return;
+
+    depot.outputTimer = (depot.outputTimer ?? 0) + delta;
+    while (depot.outputTimer >= CONFIG.storage.outputSeconds) {
+      const resource = depot.filterResource ?? "wood";
+      let spawned = 0;
+      outputs.forEach((output) => {
+        const amount = getConveyorLaneCapacity(output.conveyor);
+        for (let i = 0; i < amount; i += 1) {
+          if ((state.resources[resource] ?? 0) <= 0) return;
+          if (!canSpawnItemAt(output.conveyor, resource)) return;
+          state.resources[resource] -= 1;
+          spawnOutputResourceItem(output.output, output.conveyor, resource);
+          spawned += 1;
+        }
+      });
+
+      if (spawned <= 0) {
+        depot.status = (state.resources[resource] ?? 0) <= 0 ? "empty" : "blocked";
+        depot.outputTimer = CONFIG.storage.outputSeconds;
+        break;
+      }
+      depot.status = "working";
+      depot.outputTimer -= CONFIG.storage.outputSeconds;
+      window.Sproutworks.save?.markSaveDirty();
+    }
+  });
+}
+
+function getWarehouseOutputConveyors() {
+  return getWarehouseOutputTiles().flatMap((output) => {
+    const dir = DIRS[output.direction];
+    const tile = {
+      tileX: output.tileX + dir.dx,
+      tileY: output.tileY + dir.dy,
+    };
+    const conveyor = getMachineAtTile(tile.tileX, tile.tileY);
+    if (!conveyor || !isConveyor(conveyor)) return [];
+    if (!getConveyorInputs(conveyor).includes(oppositeDir(output.direction))) return [];
+    return [{ conveyor, output, tile }];
+  });
+}
+
+function getStorageDepotOutputConveyors(depot) {
+  return getStorageDepotOutputPorts(depot).flatMap((output) => {
+    const dir = DIRS[output.direction];
+    const tile = {
+      tileX: output.tileX + dir.dx,
+      tileY: output.tileY + dir.dy,
+    };
+    const conveyor = getMachineAtTile(tile.tileX, tile.tileY);
+    if (!conveyor || !isConveyor(conveyor)) return [];
+    if (!getConveyorInputs(conveyor).includes(oppositeDir(output.direction))) return [];
+    return [{ conveyor, output, tile }];
+  });
+}
+
 function getStorageOutputConveyor(storage) {
   const output = getStoragePorts(storage).output;
   const dir = DIRS[output.direction];
@@ -1047,6 +1177,19 @@ function getStorageOutputConveyor(storage) {
   return { conveyor, output, tile };
 }
 
+function takeWarehouseOutputResource() {
+  const resources = Object.keys(CONFIG.resources).filter((resource) => resource !== "coin");
+  for (let i = 0; i < resources.length; i += 1) {
+    const index = ((state.warehouseOutputIndex ?? 0) + i) % resources.length;
+    const resource = resources[index];
+    if ((state.resources?.[resource] ?? 0) <= 0) continue;
+    state.resources[resource] -= 1;
+    state.warehouseOutputIndex = (index + 1) % resources.length;
+    return resource;
+  }
+  return null;
+}
+
 function takeStorageOutputResource(storage) {
   const resources = Object.keys(CONFIG.resources).filter((resource) => resource !== "coin");
   for (let i = 0; i < resources.length; i += 1) {
@@ -1058,6 +1201,25 @@ function takeStorageOutputResource(storage) {
     return resource;
   }
   return null;
+}
+
+function spawnOutputResourceItem(outputPort, conveyor, resource) {
+  const outputPoint = tileToWorld(outputPort.tileX, outputPort.tileY);
+  const lane = getFirstFreeLane(conveyor.tileX, conveyor.tileY, null, buildItemTileOccupancy());
+  if (lane === -1) return;
+  countGatePass(conveyor);
+  state.items.push({
+    type: resource,
+    path: [outputPoint, pointFromMachine(conveyor)],
+    previousTile: { tileX: outputPort.tileX, tileY: outputPort.tileY },
+    currentTile: { tileX: conveyor.tileX, tileY: conveyor.tileY },
+    lane,
+    segment: 0,
+    progress: 0,
+    speed: 95,
+    x: outputPoint.x,
+    y: outputPoint.y,
+  });
 }
 
 function spawnStoredResourceItem(storage, output, resource) {
@@ -1908,6 +2070,7 @@ function drawStorageDepot(ctx, machine) {
   const width = size * 4;
   const height = size * 3;
   const ports = getStorageDepotInputPorts(machine);
+  const outputs = getStorageDepotOutputPorts(machine);
   const resource = machine.filterResource ?? "wood";
   const color = getResourceColor(resource);
 
@@ -1961,6 +2124,7 @@ function drawStorageDepot(ctx, machine) {
   ctx.restore();
 
   ports.forEach((port) => drawStoragePort(ctx, port, color, "IN"));
+  outputs.forEach((port) => drawStoragePort(ctx, port, "#4fa4c8", "OUT"));
 }
 
 function getResourceColor(resource) {
@@ -2330,6 +2494,7 @@ window.Sproutworks.machines = {
   drawMachines,
   getWarehouseInputTile,
   getWarehouseInputTiles,
+  getWarehouseOutputTiles,
   handleMoveToolAt,
   mirrorBuildMode,
   rotateBuildMode,

@@ -26,6 +26,7 @@ window.Sproutworks.CONFIG = {
     resourceMax: 500,
     unitMax: 300,
     depotRange: 980,
+    outputSeconds: 1.2,
   },
   mapReload: {
     coinCost: 500,

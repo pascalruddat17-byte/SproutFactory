@@ -257,6 +257,7 @@ function drawWorld(ctx, camera, time) {
   window.Sproutworks.machines.drawMachines(ctx, time);
   drawStartingWarehouse(ctx);
   drawWarehouseInput(ctx);
+  drawWarehouseOutput(ctx);
   ctx.restore();
 }
 
@@ -528,6 +529,38 @@ function drawWarehouseInput(ctx) {
 
     ctx.fillStyle = "#ffd36a";
     ctx.rotate((Math.PI / 2) * ((inputTile.direction ?? 1) - 1));
+    ctx.beginPath();
+    ctx.moveTo(-14, -7);
+    ctx.lineTo(6, -7);
+    ctx.lineTo(6, -16);
+    ctx.lineTo(23, 0);
+    ctx.lineTo(6, 16);
+    ctx.lineTo(6, 7);
+    ctx.lineTo(-14, 7);
+    ctx.closePath();
+    ctx.fill();
+    ctx.restore();
+  });
+}
+
+function drawWarehouseOutput(ctx) {
+  const outputTiles = window.Sproutworks.machines.getWarehouseOutputTiles();
+  const size = CONFIG.world.tileSize;
+  outputTiles.forEach((outputTile) => {
+    const x = outputTile.tileX * size + size / 2;
+    const y = outputTile.tileY * size + size / 2;
+
+    ctx.save();
+    ctx.translate(x, y);
+    ctx.fillStyle = "#39484b";
+    roundedRect(ctx, -28, -20, 56, 40, 7);
+    ctx.fill();
+    ctx.strokeStyle = "#4fa4c8";
+    ctx.lineWidth = 4;
+    ctx.stroke();
+
+    ctx.fillStyle = "#9ed9ef";
+    ctx.rotate(Math.PI / 2);
     ctx.beginPath();
     ctx.moveTo(-14, -7);
     ctx.lineTo(6, -7);

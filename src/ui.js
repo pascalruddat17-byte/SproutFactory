@@ -879,7 +879,7 @@ function getMachineNote(machine) {
   if (machine.status === "no-source") return "Diese Fabrik muss naeher an Baum, Stein oder Erz stehen.";
   if (machine.status === "no-output") return "Setze ein passendes Foerderband direkt an den Ausgang.";
   if (machine.type === "storageUnit") return "Gruen ist Eingang, Blau ist Ausgang. Das Lager zaehlt extra zum Hauptlager.";
-  if (machine.type === "storageDepot") return "Nimmt nur das eingestellte Material an und schickt es ins Haupt-Inventar.";
+  if (machine.type === "storageDepot") return "Seitlich rein ins Haupt-Inventar, unten raus auf angeschlossene Foerderbaender.";
   if (machine.type === "conveyorConditional") return "Dieses Band laesst Items nur rein, wenn dahinter noch Lagerplatz erreichbar ist. Rot bedeutet: Ziel voll.";
   if (machine.type === "conveyorOverflow") return "Umgedrehtes Bedingungsband: Es laesst ein Item nur durch, wenn genau dieses Material im Ziellager voll ist.";
   if (machine.type === "conveyorFilter") return "Dieses Band blockt alle Items ausser der ausgewaehlten Ressource.";
