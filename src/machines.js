@@ -98,7 +98,7 @@ function canPlaceBuildable(type, worldX, worldY, ignoreId = null) {
   if (type === "storageUnit") {
     const placementRotation = state.moveMode && state.movingMachineId ? state.moveRotation : state.buildRotation;
     const ports = getStoragePorts({ type, tileX: tile.tileX, tileY: tile.tileY, rotation: placementRotation });
-    if (ports.some((port) => (
+    if (Object.values(ports).some((port) => (
       !isTileInsideWorld(port.tileX, port.tileY)
       || isWarehouseTile(port.tileX, port.tileY)
       || isWarehouseInputTile(port.tileX, port.tileY)
