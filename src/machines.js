@@ -610,13 +610,14 @@ function getStorageFill(storage) {
   return Object.values(storage.storage ?? {}).reduce((sum, value) => sum + value, 0);
 }
 
-function canStoreInStorageUnit(storage) {
-  return getStorageFill(storage) < CONFIG.storage.unitMax;
+function canStoreInStorageUnit(storage, resource = null) {
+  if (!resource) return getStorageFill(storage) < CONFIG.storage.unitMax * (Object.keys(CONFIG.resources).length - 1);
+  return (storage.storage?.[resource] ?? 0) < CONFIG.storage.unitMax;
 }
 
 function storeInStorageUnit(storage, resource) {
   if (!storage.storage) storage.storage = createEmptyMachineStorage();
-  if (!canStoreInStorageUnit(storage)) return false;
+  if (!canStoreInStorageUnit(storage, resource)) return false;
   storage.storage[resource] = (storage.storage[resource] ?? 0) + 1;
   return true;
 }
@@ -807,7 +808,7 @@ function canItemEnterMachineFromDirection(machine, inputDirection, resource) {
 
 function targetHasSpaceForResource(target, resource) {
   if (target.type === "warehouse") return canStoreResource(resource);
-  if (target.type === "storageUnit") return canStoreInStorageUnit(target.storage);
+  if (target.type === "storageUnit") return canStoreInStorageUnit(target.storage, resource);
   return true;
 }
 
@@ -1111,7 +1112,7 @@ function updateItemRouteAtConveyor(item, occupiedTiles = buildItemTileOccupancy(
 
     if (getStorageInputTargetAtTile(nextTile.tileX, nextTile.tileY)) {
       const storageInput = getStorageInputTargetAtTile(nextTile.tileX, nextTile.tileY);
-      if (!canStoreInStorageUnit(storageInput.storage)) continue;
+      if (!canStoreInStorageUnit(storageInput.storage, item.type)) continue;
       item.path.push(tileToWorld(nextTile.tileX, nextTile.tileY));
       reserveItemTile(item, currentTile, nextTile, occupiedTiles);
       item.previousTile = { ...currentTile };
