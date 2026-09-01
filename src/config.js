@@ -106,10 +106,22 @@ window.Sproutworks.CONFIG = {
         wood: 3,
       },
     },
+    conveyorOverflow: {
+      cost: {
+        iron: 4,
+        wood: 3,
+      },
+    },
     conveyorFilter: {
       cost: {
         iron: 5,
         wood: 3,
+      },
+    },
+    trashCan: {
+      cost: {
+        iron: 8,
+        stone: 10,
       },
     },
     storageUnit: {

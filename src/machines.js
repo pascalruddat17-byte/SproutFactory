@@ -40,6 +40,7 @@ function createBuildable(type, tileX, tileY) {
     rotation: state.buildRotation,
     mirrored: state.buildMirrored,
     filterResource: type === "conveyorFilter" ? "wood" : undefined,
+    passedCount: 0,
     productionTimer: 0,
     active: false,
     connected: false,
@@ -67,7 +68,7 @@ function updateMachines(delta) {
 
     machine.productionTimer = Math.min(machine.productionTimer + delta, productionConfig.productionSeconds * 2);
     while (machine.productionTimer >= productionConfig.productionSeconds) {
-      if (!canSpawnItemAt(startConveyor.conveyor)) {
+      if (!canSpawnItemAt(startConveyor.conveyor, productionConfig.resource)) {
         machine.productionTimer = productionConfig.productionSeconds;
         machine.status = "blocked";
         break;
@@ -302,6 +303,7 @@ function drawMachines(ctx, time) {
     if (machine.type === "stoneCollector") drawStoneCollector(ctx, machine, time);
     if (machine.type === "ironCollector") drawIronCollector(ctx, machine, time);
     if (machine.type === "storageUnit") drawStorageUnit(ctx, machine);
+    if (machine.type === "trashCan") drawTrashCan(ctx, machine);
     if (isConveyor(machine)) drawConveyor(ctx, machine, time);
   });
   drawItems(ctx);
@@ -353,6 +355,7 @@ function drawBuildPreview(ctx, camera, pointerWorld, time) {
   if (state.buildMode === "stoneCollector") drawStoneCollector(ctx, preview, time);
   if (state.buildMode === "ironCollector") drawIronCollector(ctx, preview, time);
   if (state.buildMode === "storageUnit") drawStorageUnit(ctx, preview);
+  if (state.buildMode === "trashCan") drawTrashCan(ctx, preview);
   if (isConveyor(preview)) drawConveyor(ctx, preview, time);
 
   ctx.restore();
@@ -428,6 +431,7 @@ function drawMovePreview(ctx, camera, pointerWorld, time) {
   if (preview.type === "stoneCollector") drawStoneCollector(ctx, preview, time);
   if (preview.type === "ironCollector") drawIronCollector(ctx, preview, time);
   if (preview.type === "storageUnit") drawStorageUnit(ctx, preview);
+  if (preview.type === "trashCan") drawTrashCan(ctx, preview);
   if (isConveyor(preview)) drawConveyor(ctx, preview, time);
   ctx.restore();
 }
@@ -692,6 +696,7 @@ function getConveyorInputs(conveyor) {
   const rotation = conveyor.rotation % 4;
   if (conveyor.type === "conveyorStraight") return [rotateDir(3, rotation)];
   if (conveyor.type === "conveyorConditional") return [rotateDir(3, rotation)];
+  if (conveyor.type === "conveyorOverflow") return [rotateDir(3, rotation)];
   if (conveyor.type === "conveyorFilter") return [rotateDir(3, rotation)];
   if (conveyor.type === "conveyorCorner") return [rotateDir(conveyor.mirrored ? 2 : 0, rotation)];
   if (conveyor.type === "conveyorMerger") return rotateDirs([3, 0, 2], rotation);
@@ -703,6 +708,7 @@ function getConveyorOutputs(conveyor) {
   const rotation = conveyor.rotation % 4;
   if (conveyor.type === "conveyorStraight") return [rotateDir(1, rotation)];
   if (conveyor.type === "conveyorConditional") return [rotateDir(1, rotation)];
+  if (conveyor.type === "conveyorOverflow") return [rotateDir(1, rotation)];
   if (conveyor.type === "conveyorFilter") return [rotateDir(1, rotation)];
   if (conveyor.type === "conveyorCorner") return [rotateDir(1, rotation)];
   if (conveyor.type === "conveyorMerger") return [rotateDir(1, rotation)];
@@ -715,7 +721,7 @@ function isConveyor(machine) {
 }
 
 function isConveyorType(type) {
-  return type === "conveyorStraight" || type === "conveyorCorner" || type === "conveyorMerger" || type === "conveyorSplitter" || type === "conveyorConditional" || type === "conveyorFilter";
+  return type === "conveyorStraight" || type === "conveyorCorner" || type === "conveyorMerger" || type === "conveyorSplitter" || type === "conveyorConditional" || type === "conveyorOverflow" || type === "conveyorFilter";
 }
 
 function oppositeDir(dirIndex) {
@@ -733,6 +739,19 @@ function rotateDir(dir, rotation) {
 function canConditionalConveyorPass(conveyor, resource) {
   const target = findStorageTargetAfterConveyor(conveyor);
   if (!target) return true;
+  const hasSpace = targetHasSpaceForResource(target, resource);
+  if (conveyor.type === "conveyorOverflow") return !hasSpace;
+  return hasSpace;
+}
+
+function canItemEnterMachineFromDirection(machine, inputDirection, resource) {
+  if (!getConveyorInputs(machine).includes(inputDirection)) return false;
+  if (machine.type === "conveyorFilter" && machine.filterResource !== resource) return false;
+  if ((machine.type === "conveyorConditional" || machine.type === "conveyorOverflow") && !canConditionalConveyorPass(machine, resource)) return false;
+  return true;
+}
+
+function targetHasSpaceForResource(target, resource) {
   if (target.type === "warehouse") return canStoreResource(resource);
   if (target.type === "storageUnit") return canStoreInStorageUnit(target.storage);
   return true;
@@ -778,8 +797,17 @@ function pointFromMachine(machine) {
   return { x: machine.x, y: machine.y };
 }
 
+function isTrashCanTile(tileX, tileY) {
+  return state.machines.some((machine) => (
+    machine.type === "trashCan"
+    && machine.tileX === tileX
+    && machine.tileY === tileY
+  ));
+}
+
 function spawnResourceItem(machine, startConveyor, resource, amount) {
   for (let i = 0; i < amount; i += 1) {
+    countGatePass(startConveyor.conveyor);
     state.items.push({
       type: resource,
       path: [pointFromMachine(machine), pointFromMachine(startConveyor.conveyor)],
@@ -804,14 +832,15 @@ function updateStorageUnits(delta) {
 
     storage.outputTimer = (storage.outputTimer ?? 0) + delta;
     while (storage.outputTimer >= CONFIG.machines.storageUnit.outputSeconds) {
-      if (!canSpawnItemAt(output.conveyor)) {
-        storage.outputTimer = CONFIG.machines.storageUnit.outputSeconds;
-        storage.status = "blocked";
-        break;
-      }
       const resource = takeStorageOutputResource(storage);
       if (!resource) {
         storage.outputTimer = CONFIG.machines.storageUnit.outputSeconds;
+        break;
+      }
+      if (!canSpawnItemAt(output.conveyor, resource)) {
+        storage.storage[resource] = (storage.storage[resource] ?? 0) + 1;
+        storage.outputTimer = CONFIG.machines.storageUnit.outputSeconds;
+        storage.status = "blocked";
         break;
       }
       storage.outputTimer -= CONFIG.machines.storageUnit.outputSeconds;
@@ -849,6 +878,7 @@ function takeStorageOutputResource(storage) {
 
 function spawnStoredResourceItem(storage, output, resource) {
   const outputPoint = tileToWorld(output.output.tileX, output.output.tileY);
+  countGatePass(output.conveyor);
   state.items.push({
     type: resource,
     path: [outputPoint, pointFromMachine(output.conveyor)],
@@ -905,6 +935,10 @@ function updateItems(delta) {
             removeItem = true;
             break;
           }
+          if (nextStep === "trash") {
+            removeItem = true;
+            break;
+          }
           if (nextStep === "wait") {
             placeItemAtWaitPoint(item);
             break;
@@ -946,6 +980,10 @@ function updateItems(delta) {
         state.items.splice(i, 1);
         continue;
       }
+      if (nextStep === "trash") {
+        state.items.splice(i, 1);
+        continue;
+      }
       if (nextStep === "wait") {
         placeItemAtWaitPoint(item);
         continue;
@@ -966,6 +1004,7 @@ function updateItems(delta) {
 function updateItemRouteAtConveyor(item) {
   const currentTile = item.currentTile;
   if (!currentTile) return "remove";
+  if (isTrashCanTile(currentTile.tileX, currentTile.tileY)) return "trash";
 
   const inputTile = getWarehouseInputTile();
   if (currentTile.tileX === inputTile.tileX && currentTile.tileY === inputTile.tileY) {
@@ -1013,10 +1052,18 @@ function updateItemRouteAtConveyor(item) {
       return "continue";
     }
 
+    if (isTrashCanTile(nextTile.tileX, nextTile.tileY)) {
+      item.path.push(tileToWorld(nextTile.tileX, nextTile.tileY));
+      item.previousTile = { ...currentTile };
+      item.currentTile = { ...nextTile };
+      item.segment = item.path.length - 2;
+      item.progress = 0;
+      return "continue";
+    }
+
     const nextMachine = getMachineAtTile(nextTile.tileX, nextTile.tileY);
     if (!nextMachine || !isConveyor(nextMachine)) continue;
-    if (!getConveyorInputs(nextMachine).includes(oppositeDir(dirIndex))) continue;
-    if (nextMachine.type === "conveyorConditional" && !canConditionalConveyorPass(nextMachine, item.type)) continue;
+    if (!canItemEnterMachineFromDirection(nextMachine, oppositeDir(dirIndex), item.type)) continue;
     if (nextMachine.type === "conveyorFilter" && nextMachine.filterResource !== item.type) continue;
     if (isTileOccupiedByWaitingItem(nextTile.tileX, nextTile.tileY, item)) continue;
 
@@ -1034,6 +1081,7 @@ function updateItemRouteAtConveyor(item) {
   conveyor.routeIndex = (conveyor.routeIndex ?? 0) % usableCandidates.length;
   const next = usableCandidates[conveyor.routeIndex];
   conveyor.routeIndex = (conveyor.routeIndex + 1) % usableCandidates.length;
+  countGatePass(next.conveyor);
 
   item.previousTile = { ...currentTile };
   item.currentTile = { ...next.tile };
@@ -1048,6 +1096,7 @@ function isItemRouteStillValid(item) {
   const inputTile = getWarehouseInputTile();
   if (item.currentTile.tileX === inputTile.tileX && item.currentTile.tileY === inputTile.tileY) return true;
   if (getStorageInputTargetAtTile(item.currentTile.tileX, item.currentTile.tileY)) return true;
+  if (isTrashCanTile(item.currentTile.tileX, item.currentTile.tileY)) return true;
 
   const targetMachine = getMachineAtTile(item.currentTile.tileX, item.currentTile.tileY);
   return Boolean(targetMachine && isConveyor(targetMachine));
@@ -1106,8 +1155,14 @@ function canStoreResource(resource) {
   return (state.resources[resource] ?? 0) < CONFIG.storage.resourceMax;
 }
 
-function canSpawnItemAt(conveyor) {
+function canSpawnItemAt(conveyor, resource = null) {
+  if (resource && !canItemEnterMachineFromDirection(conveyor, getConveyorInputs(conveyor)[0], resource)) return false;
   return !isTileOccupiedByWaitingItem(conveyor.tileX, conveyor.tileY);
+}
+
+function countGatePass(conveyor) {
+  if (conveyor.type !== "conveyorConditional" && conveyor.type !== "conveyorOverflow") return;
+  conveyor.passedCount = (conveyor.passedCount ?? 0) + 1;
 }
 
 function isItemBlockedAt(item, x, y) {
@@ -1419,6 +1474,44 @@ function drawStoragePort(ctx, port, color, label) {
   ctx.restore();
 }
 
+function drawTrashCan(ctx, machine) {
+  const size = CONFIG.world.tileSize;
+  ctx.save();
+  ctx.translate(machine.x, machine.y);
+
+  ctx.fillStyle = "rgba(39, 48, 35, 0.15)";
+  ctx.beginPath();
+  ctx.ellipse(0, 18, 27, 10, 0, 0, Math.PI * 2);
+  ctx.fill();
+
+  ctx.fillStyle = "#4a5658";
+  roundedRect(ctx, -22, -22, 44, 46, 7);
+  ctx.fill();
+  ctx.strokeStyle = "#2f383b";
+  ctx.lineWidth = 4;
+  ctx.stroke();
+
+  ctx.fillStyle = "#6f7b7d";
+  roundedRect(ctx, -26, -30, 52, 12, 5);
+  ctx.fill();
+  ctx.strokeStyle = "#f0a13b";
+  ctx.lineWidth = 3;
+  ctx.stroke();
+
+  ctx.strokeStyle = "#ffd36a";
+  ctx.lineWidth = 4;
+  ctx.beginPath();
+  ctx.moveTo(-10, -7);
+  ctx.lineTo(10, 13);
+  ctx.moveTo(10, -7);
+  ctx.lineTo(-10, 13);
+  ctx.stroke();
+
+  ctx.fillStyle = "rgba(255, 211, 106, 0.16)";
+  ctx.fillRect(-size / 2 + 4, -size / 2 + 4, size - 8, size - 8);
+  ctx.restore();
+}
+
 function drawStorageCrate(ctx, x, y, size) {
   ctx.fillRect(x, y, size, size);
   ctx.strokeStyle = "#7a4a28";
@@ -1479,7 +1572,7 @@ function drawConveyor(ctx, conveyor, time) {
   ctx.setLineDash([12, 12]);
   ctx.lineDashOffset = -(time * 0.035) % 24;
   ctx.beginPath();
-  if (conveyor.type === "conveyorStraight" || conveyor.type === "conveyorConditional" || conveyor.type === "conveyorFilter") {
+  if (conveyor.type === "conveyorStraight" || conveyor.type === "conveyorConditional" || conveyor.type === "conveyorOverflow" || conveyor.type === "conveyorFilter") {
     ctx.moveTo(-size / 2 + 10, 0);
     ctx.lineTo(size / 2 - 10, 0);
     ctx.stroke();
@@ -1501,7 +1594,7 @@ function drawConveyor(ctx, conveyor, time) {
   if (conveyor.type === "conveyorMerger" || conveyor.type === "conveyorSplitter") {
     drawConveyorJunctionMark(ctx, conveyor.type);
   }
-  if (conveyor.type === "conveyorConditional") {
+  if (conveyor.type === "conveyorConditional" || conveyor.type === "conveyorOverflow") {
     drawConditionalConveyorMark(ctx, conveyor);
   }
   if (conveyor.type === "conveyorFilter") {
@@ -1544,6 +1637,14 @@ function drawConditionalConveyorMark(ctx, conveyor) {
   ctx.moveTo(-14, 15);
   ctx.lineTo(14, -15);
   ctx.stroke();
+
+  if (conveyor.type === "conveyorOverflow") {
+    ctx.fillStyle = "#fff7df";
+    ctx.font = "900 12px Trebuchet MS, sans-serif";
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    ctx.fillText("VOLL", 0, 20);
+  }
 }
 
 function drawConveyorJunctionMark(ctx, type) {

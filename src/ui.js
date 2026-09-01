@@ -123,8 +123,10 @@ function setupUi(input) {
   const buildConveyorMergerButton = document.querySelector("#buildConveyorMergerButton");
   const buildConveyorSplitterButton = document.querySelector("#buildConveyorSplitterButton");
   const buildConveyorConditionalButton = document.querySelector("#buildConveyorConditionalButton");
+  const buildConveyorOverflowButton = document.querySelector("#buildConveyorOverflowButton");
   const buildConveyorFilterButton = document.querySelector("#buildConveyorFilterButton");
   const buildStorageUnitButton = document.querySelector("#buildStorageUnitButton");
+  const buildTrashCanButton = document.querySelector("#buildTrashCanButton");
   const statusToast = document.querySelector("#statusToast");
   const categoryTabs = document.querySelectorAll(".category-tab");
   const buildCategories = document.querySelectorAll(".build-category");
@@ -158,8 +160,10 @@ function setupUi(input) {
     [buildConveyorMergerButton, "conveyorMerger"],
     [buildConveyorSplitterButton, "conveyorSplitter"],
     [buildConveyorConditionalButton, "conveyorConditional"],
+    [buildConveyorOverflowButton, "conveyorOverflow"],
     [buildConveyorFilterButton, "conveyorFilter"],
     [buildStorageUnitButton, "storageUnit"],
+    [buildTrashCanButton, "trashCan"],
   ];
 
   const mobileByDefault = matchMedia("(pointer: coarse)").matches;
@@ -411,12 +415,20 @@ function setupUi(input) {
     startBuildMode("conveyorConditional");
   });
 
+  buildConveyorOverflowButton.addEventListener("click", () => {
+    startBuildMode("conveyorOverflow");
+  });
+
   buildConveyorFilterButton.addEventListener("click", () => {
     startBuildMode("conveyorFilter");
   });
 
   buildStorageUnitButton.addEventListener("click", () => {
     startBuildMode("storageUnit");
+  });
+
+  buildTrashCanButton.addEventListener("click", () => {
+    startBuildMode("trashCan");
   });
 
   categoryTabs.forEach((tab) => {
@@ -637,8 +649,10 @@ function getBuildName(type) {
     conveyorMerger: "Zusammenfuehrer",
     conveyorSplitter: "Splitter",
     conveyorConditional: "Bedingungsfoerderband",
+    conveyorOverflow: "Ueberlauf-Band",
     conveyorFilter: "Filterfoerderband",
     storageUnit: "Lagerbauteil",
+    trashCan: "Muelleimer",
   }[type] ?? "dieses Teil";
 }
 
@@ -700,6 +714,9 @@ function showMachineInfoPanel(machine) {
       <div class="machine-info-row"><span>${getResourceLabel(resource)}</span><strong>${amount}/${CONFIG.storage.unitMax}</strong></div>
     `).join("")
     : "";
+  const counterRow = machine.type === "conveyorConditional" || machine.type === "conveyorOverflow"
+    ? `<div class="machine-info-row"><span>Durchgelassen</span><strong>${machine.passedCount ?? 0}</strong></div>`
+    : "";
   const filterRow = machine.type === "conveyorFilter"
     ? `
       <label class="machine-info-row machine-info-select-row">
@@ -719,6 +736,7 @@ function showMachineInfoPanel(machine) {
     <div class="machine-info-row"><span>Groesse</span><strong>${machine.widthTiles ?? 1}x${machine.heightTiles ?? 1}</strong></div>
     <div class="machine-info-row"><span>Richtung</span><strong>${rotationText}${machine.mirrored ? " gespiegelt" : ""}</strong></div>
     <div class="machine-info-row"><span>Baumaterial</span><strong>${costText}</strong></div>
+    ${counterRow}
     ${filterRow}
     ${storageRows}
     <p class="machine-info-note">${getMachineNote(machine)}</p>
@@ -753,8 +771,10 @@ function getMachineNote(machine) {
   if (machine.status === "no-source") return "Diese Fabrik muss naeher an Baum, Stein oder Erz stehen.";
   if (machine.status === "no-output") return "Setze ein passendes Foerderband direkt an den Ausgang.";
   if (machine.type === "storageUnit") return "Gruen ist Eingang, Blau ist Ausgang. Das Lager zaehlt extra zum Hauptlager.";
-  if (machine.type === "conveyorConditional") return "Dieses Band laesst Items nur rein, wenn dahinter noch Lagerplatz erreichbar ist.";
+  if (machine.type === "conveyorConditional") return "Dieses Band laesst Items nur rein, wenn dahinter noch Lagerplatz erreichbar ist. Rot bedeutet: Ziel voll.";
+  if (machine.type === "conveyorOverflow") return "Dieses Band laesst Items nur durch, wenn das Ziel-Lager voll ist.";
   if (machine.type === "conveyorFilter") return "Dieses Band blockt alle Items ausser der ausgewaehlten Ressource.";
+  if (machine.type === "trashCan") return "Zeigt ein Foerderband auf den Muelleimer, wird das Item dort geloescht.";
   if (machine.type?.startsWith("conveyor")) return "Items folgen bei jedem Band neu der Richtung dieses Teils.";
   return "Diese Maschine produziert automatisch, wenn Quelle und Foerderband passen.";
 }
