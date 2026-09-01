@@ -9,10 +9,12 @@ const state = {
   machines: [],
   items: [],
   effects: [],
+  removedSources: [],
   buildMode: null,
   demolishMode: false,
   moveMode: false,
   harvestMode: false,
+  sourceClearMode: false,
   harvestCooldown: 0,
   harvestAnimation: null,
   movingMachineId: null,
@@ -30,6 +32,7 @@ function saveGame() {
     const saveData = {
       version: 1,
       resources: { ...state.resources },
+      removedSources: [...state.removedSources],
       machines: state.machines.map((machine) => ({
         id: machine.id,
         type: machine.type,
@@ -73,10 +76,12 @@ function loadGame() {
     state.machines = Array.isArray(saveData.machines) ? saveData.machines.map(sanitizeMachine).filter(Boolean) : [];
     state.items = [];
     state.effects = [];
+    state.removedSources = Array.isArray(saveData.removedSources) ? saveData.removedSources.filter((id) => typeof id === "string") : [];
     state.buildMode = null;
     state.demolishMode = false;
     state.moveMode = false;
     state.harvestMode = false;
+    state.sourceClearMode = false;
     state.harvestCooldown = 0;
     state.harvestAnimation = null;
     state.movingMachineId = null;
@@ -99,10 +104,12 @@ function resetGame() {
   state.machines = [];
   state.items = [];
   state.effects = [];
+  state.removedSources = [];
   state.buildMode = null;
   state.demolishMode = false;
   state.moveMode = false;
   state.harvestMode = false;
+  state.sourceClearMode = false;
   state.harvestCooldown = 0;
   state.harvestAnimation = null;
   state.movingMachineId = null;

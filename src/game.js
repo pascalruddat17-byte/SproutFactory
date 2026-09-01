@@ -1,8 +1,8 @@
 (() => {
 const { CONFIG } = window.Sproutworks;
-const { drawWorld, isPointInWarehouse } = window.Sproutworks.world;
+const { drawResourceClearPreview, drawWorld, isPointInWarehouse, removeResourceSourceAt } = window.Sproutworks.world;
 const { demolishBuildableAt, drawBuildPreview, drawDemolishPreview, drawHarvestAnimation, drawMovePreview, getMachineAtWorld, getPlacementErrorMessage, handleMoveToolAt, harvestResourceAt, tryPlaceBuildable, updateHarvestAnimation, updateMachines } = window.Sproutworks.machines;
-const { createInput, setupUi, showMachineInfoPanel, showToast, showWarehousePanel, setBuildHintVisible, updateFactoryStatus, updateResourceCounters } = window.Sproutworks.ui;
+const { createInput, setupUi, showMachineInfoPanel, showToast, showWarehousePanel, setBuildHintVisible, updateFactoryStatus, updateResourceCounters, updateSaveStatus } = window.Sproutworks.ui;
 const { state } = window.Sproutworks;
 const { saveGame } = window.Sproutworks.save;
 
@@ -10,6 +10,7 @@ const canvas = document.querySelector("#gameCanvas");
 const ctx = canvas.getContext("2d");
 const resourceBar = document.querySelector("#resourceBar");
 const factoryStatus = document.querySelector("#factoryStatus");
+const saveStatus = document.querySelector("#saveStatus");
 const input = createInput();
 const camera = {
   x: CONFIG.camera.startX,
@@ -50,6 +51,7 @@ function tick(now) {
   autoSave(now);
   updateResourceCounters(resourceBar, state.resources);
   updateFactoryStatus(factoryStatus);
+  updateSaveStatus(saveStatus);
   draw(now);
 
   requestAnimationFrame(tick);
@@ -94,6 +96,7 @@ function draw(time) {
   drawEffects(ctx, camera);
   drawBuildPreview(ctx, camera, input.pointerWorld, time);
   drawDemolishPreview(ctx, camera, input.pointerWorld);
+  drawResourceClearPreview(ctx, camera, input.pointerWorld);
   drawMovePreview(ctx, camera, input.pointerWorld, time);
   drawVignette();
   drawMinimap();
@@ -168,6 +171,15 @@ function handleClicks() {
 
     if (state.harvestMode) {
       harvestResourceAt(worldX, worldY);
+      return;
+    }
+
+    if (state.sourceClearMode) {
+      if (removeResourceSourceAt(worldX, worldY)) {
+        showToast("Ressourcenquelle entfernt.");
+      } else {
+        showToast("Keine Ressourcenquelle getroffen.");
+      }
       return;
     }
 

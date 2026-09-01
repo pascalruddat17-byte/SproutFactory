@@ -480,9 +480,29 @@ button {
   box-shadow: 0 5px 0 #2d5231, 0 12px 25px var(--shadow);
 }
 
+.source-clear-button {
+  position: fixed;
+  left: calc(max(18px, env(safe-area-inset-left)) + 126px);
+  bottom: max(18px, env(safe-area-inset-bottom));
+  z-index: 8;
+  display: inline-flex;
+  align-items: center;
+  gap: 9px;
+  min-height: 48px;
+  padding: 0 14px;
+  color: #fff8dd;
+  font-weight: 900;
+  cursor: pointer;
+  background: #8a6150;
+  border: 3px solid #5e4035;
+  border-radius: 8px;
+  box-shadow: 0 5px 0 #4a332b, 0 12px 25px var(--shadow);
+}
+
 .build-menu-button:active,
 .demolish-button:active,
-.move-button:active {
+.move-button:active,
+.source-clear-button:active {
   transform: translateY(3px);
 }
 
@@ -509,6 +529,13 @@ button {
   background: #397c45;
   border-color: #24552f;
   box-shadow: 0 2px 0 #1c4325, 0 8px 16px var(--shadow);
+}
+
+.source-clear-button:active,
+.source-clear-button.active {
+  background: #a54838;
+  border-color: #763127;
+  box-shadow: 0 2px 0 #642820, 0 8px 16px var(--shadow);
 }
 
 .build-menu-icon {
@@ -609,6 +636,35 @@ button {
   background: #fff0bd;
   border-radius: 4px;
   transform: rotate(45deg);
+}
+
+.source-clear-icon {
+  position: relative;
+  display: inline-block;
+  width: 24px;
+  height: 24px;
+  border: 3px solid #ffd36a;
+  border-radius: 5px;
+}
+
+.source-clear-icon::before,
+.source-clear-icon::after {
+  position: absolute;
+  left: 3px;
+  top: 8px;
+  width: 14px;
+  height: 4px;
+  content: "";
+  background: #ffd36a;
+  border-radius: 6px;
+}
+
+.source-clear-icon::before {
+  transform: rotate(45deg);
+}
+
+.source-clear-icon::after {
+  transform: rotate(-45deg);
 }
 
 .move-icon::before {
@@ -972,6 +1028,26 @@ button {
   font-size: 15px;
 }
 
+.save-status {
+  position: fixed;
+  right: max(82px, calc(env(safe-area-inset-right) + 82px));
+  top: calc(max(14px, env(safe-area-inset-top)) + 58px);
+  z-index: 7;
+  padding: 8px 11px;
+  color: #fff8dd;
+  background: rgba(49, 90, 98, 0.9);
+  border: 2px solid rgba(255, 247, 223, 0.72);
+  border-radius: 8px;
+  box-shadow: 0 9px 20px var(--shadow);
+  font-size: 13px;
+  font-weight: 900;
+  pointer-events: none;
+}
+
+.save-status.dirty {
+  background: rgba(216, 137, 61, 0.92);
+}
+
 .build-hint {
   position: fixed;
   left: 50%;
@@ -1174,11 +1250,21 @@ button {
     left: 18px;
   }
 
+  .source-clear-button {
+    left: 132px;
+  }
+
   .factory-status {
     left: 12px;
     top: 112px;
     min-width: 154px;
     padding: 8px 10px;
+    font-size: 12px;
+  }
+
+  .save-status {
+    top: 112px;
+    right: 12px;
     font-size: 12px;
   }
 

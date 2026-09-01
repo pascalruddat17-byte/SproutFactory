@@ -43,12 +43,13 @@ function createInput() {
       window.Sproutworks.machines.mirrorBuildMode();
       return;
     }
-    if (event.code === "Escape" && (window.Sproutworks.state?.buildMode || window.Sproutworks.state?.demolishMode || window.Sproutworks.state?.moveMode || window.Sproutworks.state?.harvestMode)) {
+    if (event.code === "Escape" && (window.Sproutworks.state?.buildMode || window.Sproutworks.state?.demolishMode || window.Sproutworks.state?.moveMode || window.Sproutworks.state?.harvestMode || window.Sproutworks.state?.sourceClearMode)) {
       event.preventDefault();
       window.Sproutworks.state.buildMode = null;
       window.Sproutworks.state.demolishMode = false;
       window.Sproutworks.state.moveMode = false;
       window.Sproutworks.state.harvestMode = false;
+      window.Sproutworks.state.sourceClearMode = false;
       window.Sproutworks.state.movingMachineId = null;
       window.Sproutworks.state.moveRotation = 0;
       window.Sproutworks.state.moveMirrored = false;
@@ -56,6 +57,7 @@ function createInput() {
       document.querySelector("#demolishButton")?.classList.remove("active");
       document.querySelector("#moveButton")?.classList.remove("active");
       document.querySelector("#harvestButton")?.classList.remove("active");
+      document.querySelector("#sourceClearButton")?.classList.remove("active");
       window.Sproutworks.ui.setBuildHintVisible(false);
       return;
     }
@@ -65,6 +67,7 @@ function createInput() {
       KeyX: "#demolishButton",
       KeyM: "#moveButton",
       KeyH: "#harvestButton",
+      KeyQ: "#sourceClearButton",
     }[event.code];
     if (actionButton) {
       event.preventDefault();
@@ -113,6 +116,7 @@ function setupUi(input) {
   const demolishButton = document.querySelector("#demolishButton");
   const moveButton = document.querySelector("#moveButton");
   const harvestButton = document.querySelector("#harvestButton");
+  const sourceClearButton = document.querySelector("#sourceClearButton");
   const buildPanel = document.querySelector("#buildPanel");
   const closeBuildButton = document.querySelector("#closeBuildButton");
   const buildWoodCollectorButton = document.querySelector("#buildWoodCollectorButton");
@@ -217,6 +221,7 @@ function setupUi(input) {
     state.demolishMode = false;
     state.moveMode = false;
     state.harvestMode = false;
+    state.sourceClearMode = false;
     state.movingMachineId = null;
     state.moveRotation = 0;
     state.moveMirrored = false;
@@ -252,6 +257,7 @@ function setupUi(input) {
     demolishButton.classList.remove("active");
     moveButton.classList.remove("active");
     harvestButton.classList.remove("active");
+    sourceClearButton.classList.remove("active");
     setBuildHintVisible(false);
     updateResourceCounters(resourceBar, state.resources);
   });
@@ -268,12 +274,14 @@ function setupUi(input) {
     state.demolishMode = false;
     state.moveMode = false;
     state.harvestMode = false;
+    state.sourceClearMode = false;
     state.movingMachineId = null;
     state.moveRotation = 0;
     state.moveMirrored = false;
     demolishButton.classList.remove("active");
     moveButton.classList.remove("active");
     harvestButton.classList.remove("active");
+    sourceClearButton.classList.remove("active");
     setBuildHintVisible(Boolean(state.buildMode));
     buildPanel.hidden = !buildPanel.hidden;
     menuPanel.hidden = true;
@@ -287,6 +295,7 @@ function setupUi(input) {
     state.buildMode = null;
     state.moveMode = false;
     state.harvestMode = false;
+    state.sourceClearMode = false;
     state.movingMachineId = null;
     state.moveRotation = 0;
     state.moveMirrored = false;
@@ -299,6 +308,7 @@ function setupUi(input) {
     demolishButton.classList.toggle("active", state.demolishMode);
     moveButton.classList.remove("active");
     harvestButton.classList.remove("active");
+    sourceClearButton.classList.remove("active");
     setBuildHintVisible(state.demolishMode, "Bagger: Teil anklicken zum Loeschen · halbe Kosten zurueck");
   });
 
@@ -307,6 +317,7 @@ function setupUi(input) {
     state.buildMode = null;
     state.demolishMode = false;
     state.harvestMode = false;
+    state.sourceClearMode = false;
     state.movingMachineId = null;
     state.moveMirrored = false;
     buildPanel.hidden = true;
@@ -316,6 +327,7 @@ function setupUi(input) {
     machineInfoPanel.hidden = true;
     demolishButton.classList.remove("active");
     harvestButton.classList.remove("active");
+    sourceClearButton.classList.remove("active");
     moveButton.classList.toggle("active", state.moveMode);
     setBuildHintVisible(state.moveMode, "Move: Teil auswaehlen und neue Stelle anklicken");
   });
@@ -325,6 +337,7 @@ function setupUi(input) {
     state.buildMode = null;
     state.demolishMode = false;
     state.moveMode = false;
+    state.sourceClearMode = false;
     state.movingMachineId = null;
     state.moveMirrored = false;
     buildPanel.hidden = true;
@@ -334,8 +347,29 @@ function setupUi(input) {
     machineInfoPanel.hidden = true;
     demolishButton.classList.remove("active");
     moveButton.classList.remove("active");
+    sourceClearButton.classList.remove("active");
     harvestButton.classList.toggle("active", state.harvestMode);
     setBuildHintVisible(state.harvestMode, "Abbauen: Baum, Stein oder Eisenerz anklicken · Cooldown 1 s");
+  });
+
+  sourceClearButton.addEventListener("click", () => {
+    state.sourceClearMode = !state.sourceClearMode;
+    state.buildMode = null;
+    state.demolishMode = false;
+    state.moveMode = false;
+    state.harvestMode = false;
+    state.movingMachineId = null;
+    state.moveMirrored = false;
+    buildPanel.hidden = true;
+    menuPanel.hidden = true;
+    shopPanel.hidden = true;
+    warehousePanel.hidden = true;
+    machineInfoPanel.hidden = true;
+    demolishButton.classList.remove("active");
+    moveButton.classList.remove("active");
+    harvestButton.classList.remove("active");
+    sourceClearButton.classList.toggle("active", state.sourceClearMode);
+    setBuildHintVisible(state.sourceClearMode, "Quellen: Baum, Stein oder Eisenerz anklicken zum Entfernen");
   });
 
   closeMenuButton.addEventListener("click", () => {
@@ -373,6 +407,7 @@ function setupUi(input) {
     state.demolishMode = false;
     state.moveMode = false;
     state.harvestMode = false;
+    state.sourceClearMode = false;
     state.movingMachineId = null;
     state.moveRotation = 0;
     state.moveMirrored = false;
@@ -380,6 +415,7 @@ function setupUi(input) {
     demolishButton.classList.remove("active");
     moveButton.classList.remove("active");
     harvestButton.classList.remove("active");
+    sourceClearButton.classList.remove("active");
     setBuildHintVisible(false);
   });
 
@@ -550,6 +586,8 @@ function setupUi(input) {
     state.buildMode = type;
     state.demolishMode = false;
     state.moveMode = false;
+    state.harvestMode = false;
+    state.sourceClearMode = false;
     state.movingMachineId = null;
     state.moveRotation = 0;
     state.buildRotation = 0;
@@ -557,6 +595,8 @@ function setupUi(input) {
     state.buildMirrored = false;
     demolishButton.classList.remove("active");
     moveButton.classList.remove("active");
+    harvestButton.classList.remove("active");
+    sourceClearButton.classList.remove("active");
     machineInfoPanel.hidden = true;
     warehousePanel.hidden = true;
     buildPanel.hidden = true;
@@ -628,6 +668,7 @@ window.Sproutworks.ui = {
   setBuildHintVisible,
   updateResourceCounters,
   updateFactoryStatus,
+  updateSaveStatus,
 };
 
 function showToast(message) {
@@ -696,6 +737,13 @@ function updateFactoryStatus(factoryStatus) {
     <div class="factory-status-row"><span>Items auf Band</span><strong>${state.items.length}</strong></div>
     <div class="factory-status-row"><span>Extra-Lager</span><strong>${storages.length}</strong></div>
   `;
+}
+
+function updateSaveStatus(saveStatus) {
+  if (!saveStatus) return;
+  const dirty = Boolean(window.Sproutworks.state.saveDirty);
+  saveStatus.textContent = dirty ? "Speichert ..." : "Gespeichert";
+  saveStatus.classList.toggle("dirty", dirty);
 }
 
 function showMachineInfoPanel(machine) {

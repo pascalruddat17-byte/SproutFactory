@@ -125,6 +125,22 @@ function rebuildObstacles() {
   ];
 }
 
+function syncWorldExports() {
+  if (!window.Sproutworks.world) return;
+  window.Sproutworks.world.trees = trees;
+  window.Sproutworks.world.rocks = rocks;
+  window.Sproutworks.world.ironOres = ironOres;
+  window.Sproutworks.world.obstacles = obstacles;
+}
+
+function applyRemovedSources() {
+  const removed = new Set(window.Sproutworks.state?.removedSources ?? []);
+  if (removed.size === 0) return;
+  trees = trees.filter((tree) => !removed.has(tree.id));
+  rocks = rocks.filter((rock) => !removed.has(rock.id));
+  ironOres = ironOres.filter((ore) => !removed.has(ore.id));
+}
+
 function regenerateWorld(random = Math.random) {
   const occupied = [];
   const centerX = CONFIG.world.width * 0.5;
@@ -145,16 +161,12 @@ function regenerateWorld(random = Math.random) {
     return nodes;
   }
 
-  trees = createNodes(counts.trees, 64, (x, y) => ({ x, y, r: 50 + random() * 20, kind: random() > 0.55 ? "pine" : "round" }));
-  rocks = createNodes(counts.rocks, 36, (x, y) => ({ x, y, r: 27 + random() * 9 }));
-  ironOres = createNodes(counts.ironOres, 38, (x, y) => ({ x, y, r: 29 + random() * 8 }));
+  trees = createNodes(counts.trees, 64, (x, y) => ({ id: `tree-${Math.round(x)}-${Math.round(y)}`, x, y, r: 50 + random() * 20, kind: random() > 0.55 ? "pine" : "round" }));
+  rocks = createNodes(counts.rocks, 36, (x, y) => ({ id: `rock-${Math.round(x)}-${Math.round(y)}`, x, y, r: 27 + random() * 9 }));
+  ironOres = createNodes(counts.ironOres, 38, (x, y) => ({ id: `ore-${Math.round(x)}-${Math.round(y)}`, x, y, r: 29 + random() * 8 }));
+  applyRemovedSources();
   rebuildObstacles();
-  if (window.Sproutworks.world) {
-    window.Sproutworks.world.trees = trees;
-    window.Sproutworks.world.rocks = rocks;
-    window.Sproutworks.world.ironOres = ironOres;
-    window.Sproutworks.world.obstacles = obstacles;
-  }
+  syncWorldExports();
 }
 
 regenerateWorld(makeSeededRandom(20260831));
@@ -180,6 +192,58 @@ function isPointInWarehouse(x, y) {
     y >= warehouse.y - 80 &&
     y <= warehouse.y - 80 + warehouse.height
   );
+}
+
+function getResourceSourceAt(x, y) {
+  const candidates = [
+    ...trees.map((node) => ({ node, radius: node.r * 0.9 })),
+    ...rocks.map((node) => ({ node, radius: node.r + 18 })),
+    ...ironOres.map((node) => ({ node, radius: node.r + 18 })),
+  ];
+  return candidates
+    .map((candidate) => ({ ...candidate, distance: Math.hypot(x - candidate.node.x, y - candidate.node.y) }))
+    .filter((candidate) => candidate.distance <= candidate.radius)
+    .sort((a, b) => a.distance - b.distance)[0]?.node ?? null;
+}
+
+function removeResourceSourceAt(x, y) {
+  const target = getResourceSourceAt(x, y);
+  if (!target) return false;
+
+  trees = trees.filter((tree) => tree !== target);
+  rocks = rocks.filter((rock) => rock !== target);
+  ironOres = ironOres.filter((ore) => ore !== target);
+
+  if (target.id) {
+    const removed = window.Sproutworks.state?.removedSources;
+    if (removed && !removed.includes(target.id)) removed.push(target.id);
+  }
+  rebuildObstacles();
+  syncWorldExports();
+  window.Sproutworks.save?.markSaveDirty();
+  return true;
+}
+
+function drawResourceClearPreview(ctx, camera, pointerWorld) {
+  if (!window.Sproutworks.state?.sourceClearMode || !pointerWorld) return;
+  const target = getResourceSourceAt(pointerWorld.x, pointerWorld.y);
+  if (!target) return;
+
+  ctx.save();
+  ctx.scale(camera.zoom, camera.zoom);
+  ctx.translate(-camera.x, -camera.y);
+  ctx.globalAlpha = 0.42;
+  ctx.fillStyle = "#e45a43";
+  ctx.beginPath();
+  ctx.arc(target.x, target.y, target.r + 20, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.globalAlpha = 1;
+  ctx.strokeStyle = "#7d3329";
+  ctx.lineWidth = 5;
+  ctx.beginPath();
+  ctx.arc(target.x, target.y, target.r + 20, 0, Math.PI * 2);
+  ctx.stroke();
+  ctx.restore();
 }
 
 function drawWorld(ctx, camera, time) {
@@ -489,8 +553,10 @@ function roundedRect(ctx, x, y, width, height, radius) {
 window.Sproutworks.world = {
   clampToWorld,
   collides,
+  drawResourceClearPreview,
   drawWorld,
   isPointInWarehouse,
+  removeResourceSourceAt,
   regenerateWorld,
   obstacles,
   rocks,
