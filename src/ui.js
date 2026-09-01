@@ -13,6 +13,7 @@ function createInput() {
     clickEvents: [],
     pointerScreen: null,
     pointerWorld: null,
+    touchMode: false,
   };
 
   const keyMap = {
@@ -138,12 +139,14 @@ function setupUi(input) {
   const buildCategories = document.querySelectorAll(".build-category");
   const buildHint = document.querySelector("#buildHint");
   const buildTray = document.querySelector("#buildTray");
+  const confirmBuildButton = document.querySelector("#confirmBuildButton");
   const rotateBuildButton = document.querySelector("#rotateBuildButton");
   const mirrorBuildButton = document.querySelector("#mirrorBuildButton");
   const cancelBuildButton = document.querySelector("#cancelBuildButton");
   const controlModeToggle = document.querySelector("#controlModeToggle");
   const touchHint = document.querySelector("#touchHint");
   const resourceBar = document.querySelector("#resourceBar");
+  const warehouseResources = document.querySelector("#warehouseResources");
   const controlState = {
     touchMode: false,
     dragging: false,
@@ -176,6 +179,7 @@ function setupUi(input) {
 
   const mobileByDefault = matchMedia("(pointer: coarse)").matches;
   updateResourceCounters(resourceBar, state.resources);
+  updateResourceCounters(warehouseResources, state.resources);
   refreshBuildCards();
   window.setInterval(refreshBuildCards, 500);
   setTouchMode(mobileByDefault);
@@ -264,6 +268,7 @@ function setupUi(input) {
     sourceClearButton.classList.remove("active");
     setBuildHintVisible(false);
     updateResourceCounters(resourceBar, state.resources);
+    updateResourceCounters(warehouseResources, state.resources);
   });
 
   shopButton.addEventListener("click", () => {
@@ -394,6 +399,11 @@ function setupUi(input) {
 
   closeBuildButton.addEventListener("click", () => {
     buildPanel.hidden = true;
+  });
+
+  confirmBuildButton.addEventListener("click", () => {
+    if (!state.buildMode || !input.pointerScreen) return;
+    input.clickEvents.push({ screenX: input.pointerScreen.x, screenY: input.pointerScreen.y, confirmBuild: true });
   });
 
   rotateBuildButton.addEventListener("click", () => {
@@ -584,6 +594,8 @@ function setupUi(input) {
 
   function setTouchMode(enabled) {
     controlState.touchMode = enabled;
+    input.touchMode = enabled;
+    document.body.classList.toggle("touch-mode", enabled);
     controlModeToggle.checked = enabled;
     touchHint.hidden = !enabled;
     clearInput(input);
@@ -722,6 +734,7 @@ function getMissingCostText(cost) {
 }
 
 function updateResourceCounters(resourceBar, resources) {
+  if (!resourceBar) return;
   const { CONFIG } = window.Sproutworks;
   resourceBar.querySelectorAll(".resource-counter").forEach((counter) => {
     const resourceName = counter.dataset.resource;
@@ -865,12 +878,18 @@ function showWarehousePanel() {
 function setBuildHintVisible(visible, text = "Bauen: Klicken zum Platzieren · R drehen · F spiegeln") {
   const buildHint = document.querySelector("#buildHint");
   const buildTray = document.querySelector("#buildTray");
+  const confirmButton = document.querySelector("#confirmBuildButton");
   const rotateButton = document.querySelector("#rotateBuildButton");
   const mirrorButton = document.querySelector("#mirrorBuildButton");
-  buildHint.textContent = text;
+  const isTouchBuild = Boolean(window.Sproutworks.input?.touchMode && window.Sproutworks.state?.buildMode);
+  const hintText = isTouchBuild && text === "Bauen: Klicken zum Platzieren · R drehen · F spiegeln"
+    ? "Bauen: tippen fuer Vorschau · Platzieren bestaetigen"
+    : text;
+  buildHint.textContent = hintText;
   buildHint.hidden = !visible;
   buildTray.hidden = !visible;
   const hideTransformButtons = Boolean(window.Sproutworks.state?.demolishMode || window.Sproutworks.state?.harvestMode || (window.Sproutworks.state?.moveMode && !window.Sproutworks.state?.movingMachineId));
+  confirmButton.hidden = !isTouchBuild;
   rotateButton.hidden = hideTransformButtons;
   mirrorButton.hidden = hideTransformButtons;
 }

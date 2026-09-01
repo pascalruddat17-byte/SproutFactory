@@ -9,9 +9,11 @@ const { saveGame } = window.Sproutworks.save;
 const canvas = document.querySelector("#gameCanvas");
 const ctx = canvas.getContext("2d");
 const resourceBar = document.querySelector("#resourceBar");
+const warehouseResources = document.querySelector("#warehouseResources");
 const factoryStatus = document.querySelector("#factoryStatus");
 const saveStatus = document.querySelector("#saveStatus");
 const input = createInput();
+window.Sproutworks.input = input;
 const camera = {
   x: CONFIG.camera.startX,
   y: CONFIG.camera.startY,
@@ -50,6 +52,7 @@ function tick(now) {
   handleClicks();
   autoSave(now);
   updateResourceCounters(resourceBar, state.resources);
+  updateResourceCounters(warehouseResources, state.resources);
   updateFactoryStatus(factoryStatus);
   updateSaveStatus(saveStatus);
   draw(now);
@@ -150,6 +153,10 @@ function handleClicks() {
     const worldX = camera.x + event.screenX / camera.zoom;
     const worldY = camera.y + event.screenY / camera.zoom;
     if (state.buildMode) {
+      if (input.touchMode && !event.confirmBuild) {
+        setBuildHintVisible(true, "Vorschau gesetzt · unten Platzieren tippen");
+        return;
+      }
       if (tryPlaceBuildable(state.buildMode, worldX, worldY)) {
         setBuildHintVisible(Boolean(state.buildMode));
       } else {
@@ -208,6 +215,17 @@ function clamp(value, min, max) {
 }
 
 function getMinimapBounds() {
+  if (width <= 640) {
+    const mapWidth = 92;
+    const mapHeight = 68;
+    return {
+      x: width - mapWidth - 12,
+      y: 96,
+      width: mapWidth,
+      height: mapHeight,
+    };
+  }
+
   return {
     x: MINIMAP.margin,
     y: Math.max(92, height - MINIMAP.height - 96),
@@ -299,10 +317,12 @@ function drawMinimap() {
   ctx.strokeStyle = "#fff8dd";
   ctx.lineWidth = 2;
   ctx.strokeRect(x + camera.x * scaleX, y + camera.y * scaleY, (width / camera.zoom) * scaleX, (height / camera.zoom) * scaleY);
-  ctx.fillStyle = "#2d3526";
-  ctx.font = "900 11px Trebuchet MS, sans-serif";
-  ctx.textAlign = "center";
-  ctx.fillText("Mini-Map", x + map.width / 2, y + map.height + 16);
+  if (width > 640) {
+    ctx.fillStyle = "#2d3526";
+    ctx.font = "900 11px Trebuchet MS, sans-serif";
+    ctx.textAlign = "center";
+    ctx.fillText("Mini-Map", x + map.width / 2, y + map.height + 16);
+  }
   ctx.restore();
 }
 

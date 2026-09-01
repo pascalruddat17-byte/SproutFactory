@@ -87,26 +87,28 @@
         <p>Hier kommen spaeter Angebote, Upgrades und besondere Teile rein.</p>
       </aside>
 
-      <button id="buildMenuButton" class="build-menu-button" type="button" aria-label="Baumenue oeffnen">
-        <span class="build-menu-icon" aria-hidden="true"></span>
-        <span>Bauen</span>
-      </button>
-      <button id="demolishButton" class="demolish-button" type="button" aria-label="Bagger Loeschmodus">
-        <span class="demolish-icon" aria-hidden="true"></span>
-        <span>Bagger</span>
-      </button>
-      <button id="moveButton" class="move-button" type="button" aria-label="Move Tool">
-        <span class="move-icon" aria-hidden="true"></span>
-        <span>Move</span>
-      </button>
-      <button id="harvestButton" class="harvest-button" type="button" aria-label="Ressourcen abbauen">
-        <span class="harvest-icon" aria-hidden="true"></span>
-        <span>Abbauen</span>
-      </button>
-      <button id="sourceClearButton" class="source-clear-button" type="button" aria-label="Ressourcenquellen entfernen">
-        <span class="source-clear-icon" aria-hidden="true"></span>
-        <span>Quellen</span>
-      </button>
+      <div class="tool-dock" aria-label="Werkzeuge">
+        <button id="buildMenuButton" class="build-menu-button" type="button" aria-label="Baumenue oeffnen">
+          <span class="build-menu-icon" aria-hidden="true"></span>
+          <span>Bauen</span>
+        </button>
+        <button id="demolishButton" class="demolish-button" type="button" aria-label="Bagger Loeschmodus">
+          <span class="demolish-icon" aria-hidden="true"></span>
+          <span>Bagger</span>
+        </button>
+        <button id="moveButton" class="move-button" type="button" aria-label="Move Tool">
+          <span class="move-icon" aria-hidden="true"></span>
+          <span>Move</span>
+        </button>
+        <button id="harvestButton" class="harvest-button" type="button" aria-label="Ressourcen abbauen">
+          <span class="harvest-icon" aria-hidden="true"></span>
+          <span>Abbauen</span>
+        </button>
+        <button id="sourceClearButton" class="source-clear-button" type="button" aria-label="Ressourcenquellen entfernen">
+          <span class="source-clear-icon" aria-hidden="true"></span>
+          <span>Quellen</span>
+        </button>
+      </div>
 
       <aside id="buildPanel" class="panel build-panel" aria-label="Baumenue" hidden>
         <div class="panel-title">
@@ -206,6 +208,28 @@
           <button id="closeWarehouseButton" class="mini-button" type="button" aria-label="Lager schliessen">x</button>
         </div>
         <p>Kapazitaet: <strong>500</strong> pro Ressource</p>
+        <div id="warehouseResources" class="warehouse-resources" aria-label="Ressourcen im Hauptlager">
+          <div class="resource-counter currency-counter" data-resource="coin">
+            <span class="resource-icon coin-icon" aria-hidden="true"></span>
+            <span class="resource-name">Coin</span>
+            <strong>100</strong>
+          </div>
+          <div class="resource-counter" data-resource="stone">
+            <span class="resource-icon stone-icon" aria-hidden="true"></span>
+            <span class="resource-name">Stein</span>
+            <strong>120/500</strong>
+          </div>
+          <div class="resource-counter" data-resource="iron">
+            <span class="resource-icon iron-icon" aria-hidden="true"></span>
+            <span class="resource-name">Eisen</span>
+            <strong>110/500</strong>
+          </div>
+          <div class="resource-counter" data-resource="wood">
+            <span class="resource-icon wood-icon" aria-hidden="true"></span>
+            <span class="resource-name">Holz</span>
+            <strong>180/500</strong>
+          </div>
+        </div>
         <div class="upgrade-card">
           <h3>Lager Upgrade</h3>
           <button id="upgradeWarehouseButton" class="upgrade-button" type="button">Upgrade</button>
@@ -228,6 +252,7 @@
 
       <div id="buildHint" class="build-hint" hidden>Bauen: Klicken zum Platzieren · R zum Drehen</div>
       <div id="buildTray" class="build-tray" hidden>
+        <button id="confirmBuildButton" class="tray-button confirm" type="button">Platzieren</button>
         <button id="rotateBuildButton" class="tray-button" type="button">Drehen</button>
         <button id="mirrorBuildButton" class="tray-button" type="button">Spiegeln</button>
         <button id="cancelBuildButton" class="tray-button cancel" type="button">Abbrechen</button>

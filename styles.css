@@ -404,6 +404,10 @@ button {
   left: 16px;
 }
 
+.tool-dock {
+  display: contents;
+}
+
 .build-menu-button {
   position: fixed;
   right: max(18px, env(safe-area-inset-right));
@@ -817,6 +821,17 @@ button {
   transform: translateX(-50%);
 }
 
+.warehouse-resources {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 8px;
+  max-height: 230px;
+  margin: 12px 0;
+  padding-right: 4px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
 .machine-info-panel {
   left: 16px;
   top: 78px;
@@ -1093,6 +1108,19 @@ button {
   box-shadow: 0 4px 0 #2b6236;
 }
 
+.tray-button.confirm {
+  display: none;
+  background: #f0a13b;
+  border-color: #8a5228;
+  box-shadow: 0 4px 0 #704225;
+}
+
+body.touch-mode .tray-button.confirm {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
 .tray-button.cancel {
   background: #d85f45;
   border-color: #963e31;
@@ -1176,26 +1204,24 @@ button {
     width: min(92vmin, 520px);
   }
 
+  .hud {
+    inset: max(10px, env(safe-area-inset-top)) 10px auto 10px;
+  }
+
   .hud-button {
     min-height: 44px;
     padding: 0 12px;
   }
 
   .resource-bar {
-    top: 54px;
-    max-width: calc(100vw - 24px);
-    overflow-x: auto;
-    justify-content: flex-start;
-    scrollbar-width: none;
-  }
-
-  .resource-bar::-webkit-scrollbar {
     display: none;
   }
 
   .resource-counter {
-    grid-template-columns: 20px auto auto;
-    min-width: 108px;
+    grid-template-columns: 22px minmax(54px, 1fr) auto;
+    min-width: 0;
+    min-height: 34px;
+    padding: 4px 7px;
     font-size: 13px;
   }
 
@@ -1210,70 +1236,208 @@ button {
   }
 
   .touch-hint {
-    font-size: 13px;
+    left: 50%;
+    right: auto;
+    top: calc(max(10px, env(safe-area-inset-top)) + 54px);
+    max-width: calc(100vw - 184px);
+    padding: 7px 9px;
+    font-size: 11px;
+    transform: translateX(-50%);
   }
 
   .build-hint {
-    top: 108px;
+    top: calc(max(10px, env(safe-area-inset-top)) + 56px);
+    left: 12px;
+    right: 12px;
+    padding: 7px 10px;
     font-size: 13px;
+    transform: none;
   }
 
   .build-panel {
-    right: 12px;
-    bottom: 78px;
-    max-height: calc(100vh - 168px);
+    left: 10px;
+    right: 10px;
+    bottom: calc(max(8px, env(safe-area-inset-bottom)) + 82px);
+    width: auto;
+    max-height: min(58vh, 480px);
+    padding: 12px;
+    border-width: 2px;
   }
 
   .menu-panel {
+    top: calc(max(10px, env(safe-area-inset-top)) + 56px);
     left: 12px;
     right: 12px;
+    width: auto;
+    max-height: calc(100vh - 118px);
+    overflow-y: auto;
   }
 
   .machine-info-panel {
     left: 12px;
-    top: 112px;
+    right: 12px;
+    top: calc(max(10px, env(safe-area-inset-top)) + 96px);
+    width: auto;
+    max-height: calc(100vh - 188px);
+    overflow-y: auto;
+  }
+
+  .warehouse-panel {
+    left: 12px;
+    right: 12px;
+    top: calc(max(10px, env(safe-area-inset-top)) + 96px);
+    width: auto;
+    max-height: calc(100vh - 188px);
+    overflow-y: auto;
+    transform: none;
+  }
+
+  .warehouse-resources {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    max-height: 36vh;
   }
 
   .code-row input {
     width: 100%;
   }
 
+  .tool-dock {
+    position: fixed;
+    left: max(8px, env(safe-area-inset-left));
+    right: max(8px, env(safe-area-inset-right));
+    bottom: max(8px, env(safe-area-inset-bottom));
+    z-index: 11;
+    display: grid;
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+    gap: 6px;
+    padding: 6px;
+    background: rgba(255, 247, 223, 0.92);
+    border: 2px solid rgba(77, 111, 59, 0.78);
+    border-radius: 8px;
+    box-shadow: 0 10px 24px var(--shadow);
+  }
+
+  .build-menu-button,
   .demolish-button {
-    right: 126px;
+    position: static;
+    min-width: 0;
+    min-height: 54px;
+    justify-content: center;
+    flex-direction: column;
+    gap: 3px;
+    padding: 5px 3px 4px;
+    border-width: 2px;
+    border-radius: 7px;
+    box-shadow: none;
+    font-size: 11px;
   }
 
-  .move-button {
-    right: 246px;
-  }
-
+  .move-button,
   .harvest-button {
-    left: 18px;
+    position: static;
+    min-width: 0;
+    min-height: 54px;
+    justify-content: center;
+    flex-direction: column;
+    gap: 3px;
+    padding: 5px 3px 4px;
+    border-width: 2px;
+    border-radius: 7px;
+    box-shadow: none;
+    font-size: 11px;
   }
 
   .source-clear-button {
-    left: 132px;
+    position: static;
+    min-width: 0;
+    min-height: 54px;
+    justify-content: center;
+    flex-direction: column;
+    gap: 3px;
+    padding: 5px 3px 4px;
+    border-width: 2px;
+    border-radius: 7px;
+    box-shadow: none;
+    font-size: 11px;
+  }
+
+  .build-menu-button span:last-child,
+  .demolish-button span:last-child,
+  .move-button span:last-child,
+  .harvest-button span:last-child,
+  .source-clear-button span:last-child {
+    max-width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
   }
 
   .factory-status {
     left: 12px;
-    top: 112px;
-    min-width: 154px;
-    padding: 8px 10px;
-    font-size: 12px;
+    top: calc(max(10px, env(safe-area-inset-top)) + 54px);
+    min-width: 0;
+    width: 142px;
+    gap: 2px;
+    padding: 7px 8px;
+    border-width: 2px;
+    font-size: 10.5px;
+  }
+
+  .factory-status-row {
+    gap: 6px;
+  }
+
+  .factory-status strong {
+    font-size: 11px;
   }
 
   .save-status {
-    top: 112px;
+    top: calc(max(10px, env(safe-area-inset-top)) + 54px);
     right: 12px;
-    font-size: 12px;
+    padding: 6px 8px;
+    font-size: 11px;
   }
 
   .build-tray {
-    bottom: 12px;
-    max-width: calc(100vw - 24px);
+    left: 10px;
+    right: 10px;
+    bottom: calc(max(8px, env(safe-area-inset-bottom)) + 74px);
+    display: flex;
+    justify-content: center;
+    max-width: none;
+    padding: 6px;
+    transform: none;
+  }
+
+  .tray-button {
+    flex: 1 1 0;
+    min-height: 42px;
+    padding: 0 6px;
+    border-width: 2px;
+    box-shadow: none;
+    font-size: 12px;
   }
 
   .category-tabs {
-    grid-template-columns: 1fr;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 6px;
+    margin-top: 10px;
+  }
+
+  .build-card {
+    margin-top: 9px;
+    padding: 10px;
+    border-width: 2px;
+    box-shadow: none;
+  }
+
+  .shop-card-title {
+    font-size: 14px;
+  }
+
+  .shop-card-desc,
+  .shop-card-cost,
+  .build-card-status {
+    font-size: 11px;
   }
 }
