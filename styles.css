@@ -897,7 +897,7 @@ button {
 .factory-status {
   position: fixed;
   left: max(18px, env(safe-area-inset-left));
-  bottom: calc(max(18px, env(safe-area-inset-bottom)) + 168px);
+  top: calc(max(14px, env(safe-area-inset-top)) + 58px);
   z-index: 7;
   display: grid;
   gap: 5px;
@@ -1128,7 +1128,7 @@ button {
 
   .factory-status {
     left: 12px;
-    bottom: 86px;
+    top: 112px;
     min-width: 154px;
     padding: 8px 10px;
     font-size: 12px;
