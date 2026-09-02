@@ -1747,7 +1747,18 @@ function drawItems(ctx) {
     ctx.ellipse(0, 9, 13, 5, 0, 0, Math.PI * 2);
     ctx.fill();
 
-    ctx.fillStyle = item.type === "stone" ? "#aeb2aa" : item.type === "iron" ? "#8b9da2" : "#c87838";
+    const itemGradient = ctx.createLinearGradient(-11, -9, 11, 7);
+    if (item.type === "stone") {
+      itemGradient.addColorStop(0, "#d7d5c8");
+      itemGradient.addColorStop(1, "#969b92");
+    } else if (item.type === "iron") {
+      itemGradient.addColorStop(0, "#c8d4d7");
+      itemGradient.addColorStop(1, "#667a80");
+    } else {
+      itemGradient.addColorStop(0, "#e9a75a");
+      itemGradient.addColorStop(1, "#9f5b32");
+    }
+    ctx.fillStyle = itemGradient;
     roundedRect(ctx, -11, -9, 22, 16, 4);
     ctx.fill();
     ctx.strokeStyle = item.type === "stone" ? "#6f766e" : item.type === "iron" ? "#516368" : "#744424";
@@ -1819,16 +1830,28 @@ function drawWoodCollector(ctx, machine, time) {
   ctx.ellipse(0, 46, 62, 19, 0, 0, Math.PI * 2);
   ctx.fill();
 
-  ctx.fillStyle = "#567177";
+  const bodyGradient = ctx.createLinearGradient(0, -48, 0, 44);
+  bodyGradient.addColorStop(0, "#789196");
+  bodyGradient.addColorStop(0.52, "#536b70");
+  bodyGradient.addColorStop(1, "#33494e");
+  ctx.fillStyle = bodyGradient;
   roundedRect(ctx, -56, -48, 112, 92, 8);
   ctx.fill();
   ctx.strokeStyle = "#2f4448";
   ctx.lineWidth = 4;
   ctx.stroke();
 
-  ctx.fillStyle = "#f0a13b";
+  ctx.fillStyle = "rgba(255, 247, 223, 0.18)";
+  roundedRect(ctx, -46, -41, 92, 8, 4);
+  ctx.fill();
+
+  const accentGradient = ctx.createLinearGradient(-42, -32, 42, -8);
+  accentGradient.addColorStop(0, "#ffd36a");
+  accentGradient.addColorStop(1, "#e3832f");
+  ctx.fillStyle = accentGradient;
   roundedRect(ctx, -42, -32, 84, 24, 5);
   ctx.fill();
+  drawMachineBolts(ctx, 46, -38);
 
   ctx.strokeStyle = machine.active ? "#ffd36a" : "#b5beb8";
   ctx.lineWidth = 5;
@@ -1863,20 +1886,32 @@ function drawStoneCollector(ctx, machine, time) {
   ctx.ellipse(0, 46, 64, 20, 0, 0, Math.PI * 2);
   ctx.fill();
 
-  ctx.fillStyle = "#6d7d82";
+  const bodyGradient = ctx.createLinearGradient(0, -48, 0, 44);
+  bodyGradient.addColorStop(0, "#89989a");
+  bodyGradient.addColorStop(0.55, "#64777b");
+  bodyGradient.addColorStop(1, "#3d4f54");
+  ctx.fillStyle = bodyGradient;
   roundedRect(ctx, -56, -48, 112, 92, 8);
   ctx.fill();
   ctx.strokeStyle = "#34464b";
   ctx.lineWidth = 4;
   ctx.stroke();
 
-  ctx.fillStyle = "#c8c8bb";
+  ctx.fillStyle = "rgba(255, 247, 223, 0.16)";
+  roundedRect(ctx, -46, -41, 92, 8, 4);
+  ctx.fill();
+
+  const stonePlate = ctx.createLinearGradient(-42, -32, 42, -7);
+  stonePlate.addColorStop(0, "#e6e2cf");
+  stonePlate.addColorStop(1, "#aaaea6");
+  ctx.fillStyle = stonePlate;
   roundedRect(ctx, -42, -32, 84, 25, 5);
   ctx.fill();
 
   ctx.fillStyle = "#f0a13b";
   roundedRect(ctx, -18, 8, 60, 25, 5);
   ctx.fill();
+  drawMachineBolts(ctx, 46, -38);
 
   ctx.strokeStyle = machine.active ? "#ffd36a" : "#b5beb8";
   ctx.lineWidth = 5;
@@ -1913,20 +1948,32 @@ function drawIronCollector(ctx, machine, time) {
   ctx.ellipse(0, 46, 64, 20, 0, 0, Math.PI * 2);
   ctx.fill();
 
-  ctx.fillStyle = "#596b73";
+  const bodyGradient = ctx.createLinearGradient(0, -48, 0, 44);
+  bodyGradient.addColorStop(0, "#75868d");
+  bodyGradient.addColorStop(0.52, "#52666f");
+  bodyGradient.addColorStop(1, "#303f46");
+  ctx.fillStyle = bodyGradient;
   roundedRect(ctx, -56, -48, 112, 92, 8);
   ctx.fill();
   ctx.strokeStyle = "#2f3d42";
   ctx.lineWidth = 4;
   ctx.stroke();
 
-  ctx.fillStyle = "#d8dee0";
+  ctx.fillStyle = "rgba(255, 247, 223, 0.16)";
+  roundedRect(ctx, -46, -40, 92, 8, 4);
+  ctx.fill();
+
+  const ironPlate = ctx.createLinearGradient(-42, -31, 42, -7);
+  ironPlate.addColorStop(0, "#eef4f5");
+  ironPlate.addColorStop(1, "#aab8bd");
+  ctx.fillStyle = ironPlate;
   roundedRect(ctx, -42, -31, 84, 24, 5);
   ctx.fill();
 
   ctx.fillStyle = "#f0a13b";
   roundedRect(ctx, -36, 10, 72, 24, 5);
   ctx.fill();
+  drawMachineBolts(ctx, 46, -38);
 
   ctx.strokeStyle = machine.active ? "#ffd36a" : "#aeb8ba";
   ctx.lineWidth = 5;
@@ -1963,6 +2010,18 @@ function drawIronCollector(ctx, machine, time) {
 
   drawFactoryStatusBadge(ctx, machine);
   ctx.restore();
+}
+
+function drawMachineBolts(ctx, x, y) {
+  ctx.fillStyle = "rgba(255, 247, 223, 0.52)";
+  [-1, 1].forEach((side) => {
+    ctx.beginPath();
+    ctx.arc(x * side, y, 3, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.beginPath();
+    ctx.arc(x * side, -y + 8, 3, 0, Math.PI * 2);
+    ctx.fill();
+  });
 }
 
 function drawFactoryStatusBadge(ctx, machine) {
@@ -2026,21 +2085,31 @@ function drawStorageUnit(ctx, machine) {
   ctx.ellipse(0, height / 2 - 6, width * 0.46, 20, 0, 0, Math.PI * 2);
   ctx.fill();
 
-  ctx.fillStyle = "#d7ded0";
+  const storageWall = ctx.createLinearGradient(0, -height / 2, 0, height / 2);
+  storageWall.addColorStop(0, "#eef2e5");
+  storageWall.addColorStop(0.56, "#d7ded0");
+  storageWall.addColorStop(1, "#b9c4ba");
+  ctx.fillStyle = storageWall;
   roundedRect(ctx, -width / 2 + 6, -height / 2 + 8, width - 12, height - 14, 8);
   ctx.fill();
   ctx.strokeStyle = "#536568";
   ctx.lineWidth = 4;
   ctx.stroke();
 
-  ctx.fillStyle = "#315a62";
+  const storageRoof = ctx.createLinearGradient(0, -height / 2 + 14, 0, -height / 2 + 32);
+  storageRoof.addColorStop(0, "#3b7882");
+  storageRoof.addColorStop(1, "#284d55");
+  ctx.fillStyle = storageRoof;
   roundedRect(ctx, -width / 2 + 12, -height / 2 + 14, width - 24, 18, 5);
   ctx.fill();
   ctx.fillStyle = "#4fa4c8";
   roundedRect(ctx, -width / 2 + 22, -height / 2 + 19, width - 44, 7, 4);
   ctx.fill();
 
-  ctx.fillStyle = "#59676a";
+  const storageDoor = ctx.createLinearGradient(0, -18, 0, 28);
+  storageDoor.addColorStop(0, "#748285");
+  storageDoor.addColorStop(1, "#435255");
+  ctx.fillStyle = storageDoor;
   roundedRect(ctx, -40, -18, 80, 46, 5);
   ctx.fill();
   ctx.strokeStyle = "#333f42";
@@ -2063,7 +2132,10 @@ function drawStorageUnit(ctx, machine) {
   ctx.fillStyle = "#fff7df";
   roundedRect(ctx, -width / 2 + 16, -height / 2 + 42, width - 32, 12, 4);
   ctx.fill();
-  ctx.fillStyle = "#7bd34c";
+  const fillGradient = ctx.createLinearGradient(-width / 2 + 18, 0, width / 2 - 18, 0);
+  fillGradient.addColorStop(0, "#7bd34c");
+  fillGradient.addColorStop(1, "#ffd36a");
+  ctx.fillStyle = fillGradient;
   roundedRect(ctx, -width / 2 + 18, -height / 2 + 44, (width - 36) * fill, 8, 3);
   ctx.fill();
 
@@ -2095,21 +2167,31 @@ function drawStorageDepot(ctx, machine) {
   ctx.ellipse(0, height / 2 - 4, width * 0.45, 24, 0, 0, Math.PI * 2);
   ctx.fill();
 
-  ctx.fillStyle = "#dce2d7";
+  const depotWall = ctx.createLinearGradient(0, -height / 2, 0, height / 2);
+  depotWall.addColorStop(0, "#f0f4e8");
+  depotWall.addColorStop(0.58, "#dce2d7");
+  depotWall.addColorStop(1, "#b9c5bd");
+  ctx.fillStyle = depotWall;
   roundedRect(ctx, -width / 2 + 7, -height / 2 + 12, width - 14, height - 18, 8);
   ctx.fill();
   ctx.strokeStyle = "#4d6062";
   ctx.lineWidth = 4;
   ctx.stroke();
 
-  ctx.fillStyle = "#2f5962";
+  const depotRoof = ctx.createLinearGradient(0, -height / 2 + 18, 0, -height / 2 + 36);
+  depotRoof.addColorStop(0, "#3d7c86");
+  depotRoof.addColorStop(1, "#264f57");
+  ctx.fillStyle = depotRoof;
   roundedRect(ctx, -width / 2 + 12, -height / 2 + 18, width - 24, 18, 5);
   ctx.fill();
   ctx.fillStyle = "#74b7d1";
   roundedRect(ctx, -width / 2 + 22, -height / 2 + 24, width - 44, 6, 3);
   ctx.fill();
 
-  ctx.fillStyle = "#59676a";
+  const depotDoor = ctx.createLinearGradient(0, -18, 0, 64);
+  depotDoor.addColorStop(0, "#758286");
+  depotDoor.addColorStop(1, "#3e4f52");
+  ctx.fillStyle = depotDoor;
   roundedRect(ctx, -48, -18, 96, 82, 6);
   ctx.fill();
   ctx.strokeStyle = "#354345";
@@ -2325,6 +2407,15 @@ function drawConveyor(ctx, conveyor, time) {
   ctx.strokeStyle = "#2f383b";
   ctx.lineWidth = 3;
   ctx.stroke();
+
+  ctx.fillStyle = "#233235";
+  roundedRect(ctx, -size / 2 + 3, -17, 8, 34, 4);
+  roundedRect(ctx, size / 2 - 11, -17, 8, 34, 4);
+  ctx.fill();
+  ctx.fillStyle = "#6f7c7f";
+  roundedRect(ctx, -size / 2 + 6, -12, 3, 24, 2);
+  roundedRect(ctx, size / 2 - 9, -12, 3, 24, 2);
+  ctx.fill();
 
   ctx.strokeStyle = "rgba(255, 247, 223, 0.22)";
   ctx.lineWidth = 3;

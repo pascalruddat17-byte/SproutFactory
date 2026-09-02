@@ -262,10 +262,23 @@ function drawWorld(ctx, camera, time) {
 }
 
 function drawGround(ctx, width, height) {
-  ctx.fillStyle = "#8dce6d";
+  const groundGradient = ctx.createLinearGradient(0, 0, width, height);
+  groundGradient.addColorStop(0, "#a9dc78");
+  groundGradient.addColorStop(0.46, "#8dce6d");
+  groundGradient.addColorStop(1, "#72b85c");
+  ctx.fillStyle = groundGradient;
   ctx.fillRect(0, 0, width, height);
 
-  ctx.strokeStyle = "rgba(255, 255, 255, 0.08)";
+  ctx.fillStyle = "rgba(255, 238, 157, 0.09)";
+  for (let y = 260; y < height; y += 740) {
+    for (let x = 180; x < width; x += 920) {
+      ctx.beginPath();
+      ctx.ellipse(x + ((x + y) % 190), y + ((x * 3 + y) % 130), 190, 74, -0.15, 0, Math.PI * 2);
+      ctx.fill();
+    }
+  }
+
+  ctx.strokeStyle = "rgba(255, 255, 255, 0.095)";
   ctx.lineWidth = 2;
   for (let x = 0; x < width; x += CONFIG.world.tileSize) {
     ctx.beginPath();
@@ -280,8 +293,8 @@ function drawGround(ctx, width, height) {
     ctx.stroke();
   }
 
-  const light = ctx.createRadialGradient(CONFIG.world.width * 0.5, CONFIG.world.height * 0.38, 120, CONFIG.world.width * 0.5, CONFIG.world.height * 0.38, 1300);
-  light.addColorStop(0, "rgba(255, 228, 132, 0.24)");
+  const light = ctx.createRadialGradient(CONFIG.world.width * 0.5, CONFIG.world.height * 0.38, 120, CONFIG.world.width * 0.5, CONFIG.world.height * 0.38, 1700);
+  light.addColorStop(0, "rgba(255, 232, 145, 0.32)");
   light.addColorStop(1, "rgba(255, 228, 132, 0)");
   ctx.fillStyle = light;
   ctx.fillRect(0, 0, width, height);
@@ -297,7 +310,7 @@ function drawScenery(ctx, time) {
 }
 
 function drawGrass(ctx, x, y, h) {
-  ctx.strokeStyle = "rgba(48, 119, 49, 0.48)";
+  ctx.strokeStyle = "rgba(43, 112, 50, 0.58)";
   ctx.lineWidth = 3;
   ctx.lineCap = "round";
   ctx.beginPath();
@@ -345,10 +358,17 @@ function drawRock(ctx, x, y, r) {
   ctx.beginPath();
   ctx.ellipse(x + 6, y + 11, r * 1.1, r * 0.44, 0, 0, Math.PI * 2);
   ctx.fill();
-  ctx.fillStyle = "#b8b7a8";
+  const rockGradient = ctx.createLinearGradient(x - r, y - r, x + r, y + r);
+  rockGradient.addColorStop(0, "#d6d3c0");
+  rockGradient.addColorStop(0.58, "#aaa99a");
+  rockGradient.addColorStop(1, "#858b83");
+  ctx.fillStyle = rockGradient;
   ctx.beginPath();
   ctx.ellipse(x, y, r, r * 0.7, -0.2, 0, Math.PI * 2);
   ctx.fill();
+  ctx.strokeStyle = "rgba(90, 96, 88, 0.7)";
+  ctx.lineWidth = 3;
+  ctx.stroke();
   ctx.fillStyle = "rgba(255,255,255,0.28)";
   ctx.beginPath();
   ctx.ellipse(x - r * 0.28, y - r * 0.22, r * 0.24, r * 0.12, -0.2, 0, Math.PI * 2);
@@ -360,7 +380,11 @@ function drawIronOre(ctx, x, y, r) {
   ctx.beginPath();
   ctx.ellipse(x + 6, y + 12, r * 1.12, r * 0.45, 0, 0, Math.PI * 2);
   ctx.fill();
-  ctx.fillStyle = "#59636a";
+  const oreGradient = ctx.createLinearGradient(x - r, y - r, x + r, y + r);
+  oreGradient.addColorStop(0, "#7b8990");
+  oreGradient.addColorStop(0.58, "#4f5d64");
+  oreGradient.addColorStop(1, "#313f45");
+  ctx.fillStyle = oreGradient;
   ctx.beginPath();
   ctx.moveTo(x - r, y + r * 0.35);
   ctx.lineTo(x - r * 0.65, y - r * 0.7);
@@ -373,7 +397,10 @@ function drawIronOre(ctx, x, y, r) {
   ctx.strokeStyle = "#39454b";
   ctx.lineWidth = 4;
   ctx.stroke();
-  ctx.fillStyle = "#b86645";
+  const ironGlow = ctx.createLinearGradient(x - r * 0.5, y - r * 0.6, x + r * 0.35, y + r * 0.1);
+  ironGlow.addColorStop(0, "#e08b62");
+  ironGlow.addColorStop(1, "#974c37");
+  ctx.fillStyle = ironGlow;
   ctx.beginPath();
   ctx.moveTo(x - r * 0.5, y - r * 0.32);
   ctx.lineTo(x - r * 0.12, y - r * 0.6);
@@ -389,16 +416,21 @@ function drawTree(ctx, tree) {
   ctx.ellipse(tree.x + 8, tree.y + tree.r * 0.9, tree.r * 0.64, tree.r * 0.26, 0, 0, Math.PI * 2);
   ctx.fill();
 
-  ctx.fillStyle = "#8d5a34";
+  const trunkGradient = ctx.createLinearGradient(tree.x - 13, tree.y, tree.x + 13, tree.y + tree.r);
+  trunkGradient.addColorStop(0, "#a56a3d");
+  trunkGradient.addColorStop(1, "#6d432a");
+  ctx.fillStyle = trunkGradient;
   ctx.fillRect(tree.x - 13, tree.y + tree.r * 0.28, 26, tree.r * 0.72);
 
   if (tree.kind === "pine") {
-    ctx.fillStyle = "#2e7f43";
+    ctx.fillStyle = "#28743f";
     drawTriangle(ctx, tree.x, tree.y - 72, tree.r * 1.15, tree.r * 1.25);
-    ctx.fillStyle = "#3fa050";
+    ctx.fillStyle = "#39964e";
     drawTriangle(ctx, tree.x, tree.y - 32, tree.r * 1.35, tree.r * 1.15);
-    ctx.fillStyle = "#58b958";
+    ctx.fillStyle = "#5dbe58";
     drawTriangle(ctx, tree.x, tree.y + 8, tree.r * 1.55, tree.r);
+    ctx.fillStyle = "rgba(255, 247, 178, 0.18)";
+    drawTriangle(ctx, tree.x - tree.r * 0.18, tree.y - 52, tree.r * 0.38, tree.r * 0.62);
     return;
   }
 
@@ -412,6 +444,10 @@ function drawTree(ctx, tree) {
   ctx.fillStyle = "#67bd4e";
   ctx.beginPath();
   ctx.ellipse(tree.x, tree.y - 9, tree.r * 0.72, tree.r * 0.58, 0, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.fillStyle = "rgba(255, 247, 178, 0.18)";
+  ctx.beginPath();
+  ctx.ellipse(tree.x - tree.r * 0.22, tree.y - tree.r * 0.24, tree.r * 0.28, tree.r * 0.18, -0.35, 0, Math.PI * 2);
   ctx.fill();
 }
 
