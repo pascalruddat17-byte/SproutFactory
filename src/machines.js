@@ -1570,6 +1570,12 @@ function getPreferredLane(tileX, tileY, item, occupiedTiles) {
   if (capacity === 1) {
     return isLaneUsed(tileX, tileY, 0, item, occupiedTiles) ? -1 : 0;
   }
+  const currentCapacity = item?.currentTile
+    ? getTileLaneCapacity(item.currentTile.tileX, item.currentTile.tileY)
+    : 1;
+  if (currentCapacity < capacity) {
+    return getFirstFreeLane(tileX, tileY, item, occupiedTiles);
+  }
   if (lane >= capacity) return -1;
   return isLaneUsed(tileX, tileY, lane, item, occupiedTiles) ? -1 : lane;
 }
