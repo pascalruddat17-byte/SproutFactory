@@ -570,10 +570,10 @@ function getWarehouseInputTiles() {
   const top = Math.floor((warehouse.y - 80) / size);
   const right = Math.floor((warehouse.x + warehouse.width / 2) / size);
   return [
-    { tileX: left, tileY: top + 1, direction: 1 },
     { tileX: left, tileY: top + 2, direction: 1 },
-    { tileX: right, tileY: top + 1, direction: 3 },
+    { tileX: left, tileY: top + 3, direction: 1 },
     { tileX: right, tileY: top + 2, direction: 3 },
+    { tileX: right, tileY: top + 3, direction: 3 },
   ];
 }
 
@@ -2154,7 +2154,7 @@ function drawStoragePort(ctx, port, color, label) {
   const point = tileToWorld(port.tileX, port.tileY);
   const isOutput = label === "OUT";
   const vector = DIRS[port.direction ?? 1] ?? DIRS[1];
-  const inset = isOutput ? -26 : 26;
+  const inset = isOutput ? 8 : 12;
   ctx.save();
   ctx.translate(point.x + vector.dx * inset, point.y + vector.dy * inset);
   ctx.rotate((Math.PI / 2) * ((port.direction ?? 1) - 1));

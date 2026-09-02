@@ -552,9 +552,46 @@ function drawWarehouseOutput(ctx) {
 function drawWarehouseDock(ctx, x, y, direction, accent, mode) {
   const visual = getDockVisualPoint(x, y, direction, mode);
   const rotation = (Math.PI / 2) * ((direction ?? 1) - 1);
+  const isHorizontal = direction === 1 || direction === 3;
   ctx.save();
   ctx.translate(visual.x, visual.y);
   ctx.rotate(rotation);
+
+  if (isHorizontal && mode === "in") {
+    ctx.fillStyle = "rgba(39, 48, 35, 0.13)";
+    ctx.beginPath();
+    ctx.ellipse(-5, 18, 31, 9, 0, 0, Math.PI * 2);
+    ctx.fill();
+
+    const sideDoorGradient = ctx.createLinearGradient(-36, 0, 22, 0);
+    sideDoorGradient.addColorStop(0, "#26383c");
+    sideDoorGradient.addColorStop(0.45, "#475c60");
+    sideDoorGradient.addColorStop(1, "#26383c");
+    ctx.fillStyle = sideDoorGradient;
+    roundedRect(ctx, -36, -25, 58, 50, 8);
+    ctx.fill();
+    ctx.strokeStyle = "#d8872f";
+    ctx.lineWidth = 3;
+    ctx.stroke();
+
+    ctx.fillStyle = "rgba(255, 211, 106, 0.78)";
+    roundedRect(ctx, -29, -15, 9, 30, 4);
+    ctx.fill();
+
+    ctx.fillStyle = accent;
+    ctx.beginPath();
+    ctx.moveTo(-16, -7);
+    ctx.lineTo(3, -7);
+    ctx.lineTo(3, -14);
+    ctx.lineTo(18, 0);
+    ctx.lineTo(3, 14);
+    ctx.lineTo(3, 7);
+    ctx.lineTo(-16, 7);
+    ctx.closePath();
+    ctx.fill();
+    ctx.restore();
+    return;
+  }
 
   const dockGradient = ctx.createLinearGradient(-30, 0, 30, 0);
   dockGradient.addColorStop(0, "#24373b");
@@ -597,7 +634,9 @@ function getDockVisualPoint(x, y, direction, mode) {
     { dx: -1, dy: 0 },
   ];
   const vector = vectors[direction ?? 1] ?? vectors[1];
-  const inset = mode === "in" ? 28 : -28;
+  const isSideInput = mode === "in" && (direction === 1 || direction === 3);
+  const isBottomOutput = mode === "out" && direction === 2;
+  const inset = isSideInput ? 8 : isBottomOutput ? 12 : mode === "in" ? 28 : -28;
   return {
     x: x + vector.dx * inset,
     y: y + vector.dy * inset,
