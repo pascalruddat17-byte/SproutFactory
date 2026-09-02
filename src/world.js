@@ -535,32 +535,7 @@ function drawWarehouseInput(ctx) {
   inputTiles.forEach((inputTile) => {
     const x = inputTile.tileX * size + size / 2;
     const y = inputTile.tileY * size + size / 2;
-
-    ctx.save();
-    ctx.translate(x, y);
-    const inputGradient = ctx.createLinearGradient(0, -21, 0, 21);
-    inputGradient.addColorStop(0, "#496469");
-    inputGradient.addColorStop(1, "#27383c");
-    ctx.fillStyle = inputGradient;
-    roundedRect(ctx, -28, -20, 56, 40, 7);
-    ctx.fill();
-    ctx.strokeStyle = "#d8872f";
-    ctx.lineWidth = 3;
-    ctx.stroke();
-
-    ctx.fillStyle = "#ffd36a";
-    ctx.rotate((Math.PI / 2) * ((inputTile.direction ?? 1) - 1));
-    ctx.beginPath();
-    ctx.moveTo(-16, -6);
-    ctx.lineTo(5, -6);
-    ctx.lineTo(5, -14);
-    ctx.lineTo(22, 0);
-    ctx.lineTo(5, 14);
-    ctx.lineTo(5, 6);
-    ctx.lineTo(-16, 6);
-    ctx.closePath();
-    ctx.fill();
-    ctx.restore();
+    drawWarehouseDock(ctx, x, y, inputTile.direction ?? 1, "#ffd36a", "in");
   });
 }
 
@@ -570,33 +545,43 @@ function drawWarehouseOutput(ctx) {
   outputTiles.forEach((outputTile) => {
     const x = outputTile.tileX * size + size / 2;
     const y = outputTile.tileY * size + size / 2;
-
-    ctx.save();
-    ctx.translate(x, y);
-    const outputGradient = ctx.createLinearGradient(0, -21, 0, 21);
-    outputGradient.addColorStop(0, "#4b6970");
-    outputGradient.addColorStop(1, "#26393e");
-    ctx.fillStyle = outputGradient;
-    roundedRect(ctx, -28, -20, 56, 40, 7);
-    ctx.fill();
-    ctx.strokeStyle = "#4fa4c8";
-    ctx.lineWidth = 3;
-    ctx.stroke();
-
-    ctx.fillStyle = "#9ed9ef";
-    ctx.rotate(Math.PI / 2);
-    ctx.beginPath();
-    ctx.moveTo(-14, -7);
-    ctx.lineTo(6, -7);
-    ctx.lineTo(6, -16);
-    ctx.lineTo(23, 0);
-    ctx.lineTo(6, 16);
-    ctx.lineTo(6, 7);
-    ctx.lineTo(-14, 7);
-    ctx.closePath();
-    ctx.fill();
-    ctx.restore();
+    drawWarehouseDock(ctx, x, y, outputTile.direction ?? 1, "#9ed9ef", "out");
   });
+}
+
+function drawWarehouseDock(ctx, x, y, direction, accent, mode) {
+  const rotation = (Math.PI / 2) * ((direction ?? 1) - 1);
+  ctx.save();
+  ctx.translate(x, y);
+  ctx.rotate(rotation);
+
+  const dockGradient = ctx.createLinearGradient(-30, 0, 30, 0);
+  dockGradient.addColorStop(0, "#24373b");
+  dockGradient.addColorStop(0.45, "#41565a");
+  dockGradient.addColorStop(1, "#25373b");
+  ctx.fillStyle = dockGradient;
+  roundedRect(ctx, -30, -18, 60, 36, 8);
+  ctx.fill();
+  ctx.strokeStyle = mode === "in" ? "#d8872f" : "#4fa4c8";
+  ctx.lineWidth = 3;
+  ctx.stroke();
+
+  ctx.fillStyle = "rgba(255, 247, 223, 0.16)";
+  roundedRect(ctx, -22, -11, 32, 22, 6);
+  ctx.fill();
+
+  ctx.fillStyle = accent;
+  ctx.beginPath();
+  ctx.moveTo(-18, -7);
+  ctx.lineTo(5, -7);
+  ctx.lineTo(5, -15);
+  ctx.lineTo(22, 0);
+  ctx.lineTo(5, 15);
+  ctx.lineTo(5, 7);
+  ctx.lineTo(-18, 7);
+  ctx.closePath();
+  ctx.fill();
+  ctx.restore();
 }
 
 function drawCrate(ctx, x, y, size) {

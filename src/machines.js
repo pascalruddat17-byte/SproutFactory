@@ -2152,34 +2152,55 @@ function getResourceColor(resource) {
 function drawStoragePort(ctx, port, color, label) {
   const size = CONFIG.world.tileSize;
   const point = tileToWorld(port.tileX, port.tileY);
+  const isOutput = label === "OUT";
   ctx.save();
   ctx.translate(point.x, point.y);
   ctx.rotate((Math.PI / 2) * ((port.direction ?? 1) - 1));
-  ctx.fillStyle = "rgba(39, 48, 35, 0.12)";
+
+  ctx.fillStyle = "rgba(39, 48, 35, 0.14)";
   ctx.beginPath();
-  ctx.ellipse(6, 16, 30, 10, 0, 0, Math.PI * 2);
+  ctx.ellipse(0, 18, 28, 9, 0, 0, Math.PI * 2);
   ctx.fill();
 
-  ctx.fillStyle = "#4c5c5e";
-  roundedRect(ctx, -34, -13, 50, 26, 7);
-  ctx.fill();
-  ctx.fillStyle = "#263437";
-  roundedRect(ctx, -22, -7, 36, 14, 5);
-  ctx.fill();
-
-  ctx.fillStyle = "#39484b";
-  roundedRect(ctx, -2, -size / 2 + 9, size / 2, size - 18, 8);
+  const dockGradient = ctx.createLinearGradient(-30, 0, 30, 0);
+  dockGradient.addColorStop(0, "#24373b");
+  dockGradient.addColorStop(0.45, "#43575b");
+  dockGradient.addColorStop(1, "#24373b");
+  ctx.fillStyle = dockGradient;
+  roundedRect(ctx, -30, -18, 60, 36, 8);
   ctx.fill();
   ctx.strokeStyle = color;
-  ctx.lineWidth = 4;
+  ctx.lineWidth = 3;
+  ctx.stroke();
+
+  ctx.fillStyle = "#263437";
+  roundedRect(ctx, -21, -10, 42, 20, 6);
+  ctx.fill();
+
+  ctx.strokeStyle = "rgba(255, 247, 223, 0.18)";
+  ctx.lineWidth = 3;
+  ctx.beginPath();
+  ctx.moveTo(-18, -5);
+  ctx.lineTo(18, -5);
+  ctx.moveTo(-18, 5);
+  ctx.lineTo(18, 5);
   ctx.stroke();
 
   ctx.fillStyle = color;
-  ctx.font = "900 11px Trebuchet MS, sans-serif";
-  ctx.textAlign = "center";
-  ctx.textBaseline = "middle";
-  ctx.rotate(-(Math.PI / 2) * ((port.direction ?? 1) - 1));
-  ctx.fillText(label, 15, 0);
+  ctx.beginPath();
+  ctx.moveTo(-18, -7);
+  ctx.lineTo(5, -7);
+  ctx.lineTo(5, -15);
+  ctx.lineTo(22, 0);
+  ctx.lineTo(5, 15);
+  ctx.lineTo(5, 7);
+  ctx.lineTo(-18, 7);
+  ctx.closePath();
+  ctx.fill();
+
+  ctx.fillStyle = "rgba(255, 247, 223, 0.18)";
+  roundedRect(ctx, isOutput ? -size / 2 + 8 : size / 2 - 18, -9, 10, 18, 4);
+  ctx.fill();
   ctx.restore();
 }
 
@@ -2286,6 +2307,7 @@ function drawConveyor(ctx, conveyor, time) {
   ctx.fillStyle = "rgba(39, 48, 35, 0.14)";
   roundedRect(ctx, -size / 2 + 5, -size / 2 + 10, size - 10, size - 17, 9);
   ctx.fill();
+  drawConveyorConnectors(ctx, conveyor);
 
   const beltGradient = ctx.createLinearGradient(0, -17, 0, 17);
   beltGradient.addColorStop(0, "#677477");
@@ -2370,6 +2392,65 @@ function drawConveyor(ctx, conveyor, time) {
   drawLaneLevelMark(ctx, conveyor);
 
   ctx.restore();
+}
+
+function drawConveyorConnectors(ctx, conveyor) {
+  const size = CONFIG.world.tileSize;
+  const rotation = conveyor.rotation % 4;
+  getConveyorConnections(conveyor).forEach((direction) => {
+    if (!hasVisualConveyorConnection(conveyor, direction)) return;
+    const localDirection = (direction - rotation + 4) % 4;
+    const isVertical = localDirection === 0 || localDirection === 2;
+    const x = localDirection === 1 ? 0 : localDirection === 3 ? -size / 2 : -15;
+    const y = localDirection === 2 ? 0 : localDirection === 0 ? -size / 2 : -15;
+    const width = isVertical ? 30 : size / 2;
+    const height = isVertical ? size / 2 : 30;
+
+    const connectorGradient = isVertical
+      ? ctx.createLinearGradient(0, y, 0, y + height)
+      : ctx.createLinearGradient(x, 0, x + width, 0);
+    connectorGradient.addColorStop(0, "#303b3e");
+    connectorGradient.addColorStop(0.5, "#515d60");
+    connectorGradient.addColorStop(1, "#303b3e");
+    ctx.fillStyle = connectorGradient;
+    roundedRect(ctx, x, y, width, height, 5);
+    ctx.fill();
+
+    ctx.strokeStyle = "rgba(255, 247, 223, 0.18)";
+    ctx.lineWidth = 3;
+    ctx.beginPath();
+    if (isVertical) {
+      ctx.moveTo(x + 8, y + 7);
+      ctx.lineTo(x + 8, y + height - 7);
+      ctx.moveTo(x + width - 8, y + 7);
+      ctx.lineTo(x + width - 8, y + height - 7);
+    } else {
+      ctx.moveTo(x + 7, y + 8);
+      ctx.lineTo(x + width - 7, y + 8);
+      ctx.moveTo(x + 7, y + height - 8);
+      ctx.lineTo(x + width - 7, y + height - 8);
+    }
+    ctx.stroke();
+  });
+}
+
+function hasVisualConveyorConnection(conveyor, direction) {
+  const dir = DIRS[direction];
+  const tileX = conveyor.tileX + dir.dx;
+  const tileY = conveyor.tileY + dir.dy;
+  const nextMachine = getMachineAtTile(tileX, tileY);
+  if (nextMachine && isConveyor(nextMachine)) {
+    return getConveyorConnections(nextMachine).includes(oppositeDir(direction));
+  }
+  return Boolean(
+    getWarehouseInputTargetAtTile(tileX, tileY)
+    || isWarehouseOutputTile(tileX, tileY)
+    || getStorageInputTargetAtTile(tileX, tileY)
+    || getStorageOutputTargetAtTile(tileX, tileY)
+    || getStorageDepotInputTargetAtTile(tileX, tileY)
+    || isStorageDepotOutputTile(tileX, tileY)
+    || isTrashCanTile(tileX, tileY)
+  );
 }
 
 function drawLaneLevelMark(ctx, conveyor) {
