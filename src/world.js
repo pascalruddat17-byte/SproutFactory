@@ -433,12 +433,20 @@ function drawStartingWarehouse(ctx) {
   ctx.ellipse(0, 112, 236, 62, 0, 0, Math.PI * 2);
   ctx.fill();
 
-  ctx.fillStyle = "#d5d9d2";
+  const wallGradient = ctx.createLinearGradient(0, -80, 0, 110);
+  wallGradient.addColorStop(0, "#f1f2e5");
+  wallGradient.addColorStop(0.58, "#d5d9d2");
+  wallGradient.addColorStop(1, "#bfc8bf");
+  ctx.fillStyle = wallGradient;
   roundedRect(ctx, -192, -80, 384, 190, 8);
   ctx.fill();
   ctx.strokeStyle = "#68736e";
   ctx.lineWidth = 5;
   ctx.stroke();
+
+  ctx.fillStyle = "rgba(255, 255, 255, 0.38)";
+  roundedRect(ctx, -178, -68, 356, 16, 5);
+  ctx.fill();
 
   ctx.fillStyle = "#f7f2df";
   roundedRect(ctx, -166, -58, 332, 42, 6);
@@ -449,7 +457,10 @@ function drawStartingWarehouse(ctx) {
     ctx.fill();
   }
 
-  ctx.fillStyle = "#59676a";
+  const doorGradient = ctx.createLinearGradient(0, 5, 0, 107);
+  doorGradient.addColorStop(0, "#718083");
+  doorGradient.addColorStop(1, "#3c4a4d");
+  ctx.fillStyle = doorGradient;
   roundedRect(ctx, -78, 5, 156, 102, 6);
   ctx.fill();
   ctx.strokeStyle = "#333f42";
@@ -465,11 +476,18 @@ function drawStartingWarehouse(ctx) {
   roundedRect(ctx, -58, 58, 116, 40, 5);
   ctx.fill();
 
-  ctx.fillStyle = "#315a62";
+  const roofGradient = ctx.createLinearGradient(0, -98, 0, -66);
+  roofGradient.addColorStop(0, "#3a7580");
+  roofGradient.addColorStop(1, "#244c55");
+  ctx.fillStyle = roofGradient;
   roundedRect(ctx, -210, -98, 420, 32, 7);
   ctx.fill();
   ctx.fillStyle = "#4fa4c8";
   roundedRect(ctx, -194, -91, 388, 10, 4);
+  ctx.fill();
+  ctx.fillStyle = "rgba(255, 255, 255, 0.22)";
+  roundedRect(ctx, -183, -89, 92, 5, 3);
+  roundedRect(ctx, 78, -89, 72, 5, 3);
   ctx.fill();
 
   ctx.fillStyle = "#ef9c32";
@@ -485,12 +503,12 @@ function drawStartingWarehouse(ctx) {
 
   ctx.fillStyle = "#39484b";
   [-94, -46, 46, 94].forEach((dockX) => {
-    roundedRect(ctx, dockX - 17, 88, 34, 18, 4);
+    roundedRect(ctx, dockX - 18, 86, 36, 21, 5);
     ctx.fill();
   });
   ctx.fillStyle = "#9ac7d8";
   [-94, -46, 46, 94].forEach((dockX) => {
-    roundedRect(ctx, dockX - 11, 92, 22, 6, 3);
+    roundedRect(ctx, dockX - 12, 92, 24, 6, 3);
     ctx.fill();
   });
   ctx.fillStyle = "#39484b";
@@ -520,23 +538,26 @@ function drawWarehouseInput(ctx) {
 
     ctx.save();
     ctx.translate(x, y);
-    ctx.fillStyle = "#39484b";
+    const inputGradient = ctx.createLinearGradient(0, -21, 0, 21);
+    inputGradient.addColorStop(0, "#496469");
+    inputGradient.addColorStop(1, "#27383c");
+    ctx.fillStyle = inputGradient;
     roundedRect(ctx, -28, -20, 56, 40, 7);
     ctx.fill();
-    ctx.strokeStyle = "#f0a13b";
-    ctx.lineWidth = 4;
+    ctx.strokeStyle = "#d8872f";
+    ctx.lineWidth = 3;
     ctx.stroke();
 
     ctx.fillStyle = "#ffd36a";
     ctx.rotate((Math.PI / 2) * ((inputTile.direction ?? 1) - 1));
     ctx.beginPath();
-    ctx.moveTo(-14, -7);
-    ctx.lineTo(6, -7);
-    ctx.lineTo(6, -16);
-    ctx.lineTo(23, 0);
-    ctx.lineTo(6, 16);
-    ctx.lineTo(6, 7);
-    ctx.lineTo(-14, 7);
+    ctx.moveTo(-16, -6);
+    ctx.lineTo(5, -6);
+    ctx.lineTo(5, -14);
+    ctx.lineTo(22, 0);
+    ctx.lineTo(5, 14);
+    ctx.lineTo(5, 6);
+    ctx.lineTo(-16, 6);
     ctx.closePath();
     ctx.fill();
     ctx.restore();
@@ -552,11 +573,14 @@ function drawWarehouseOutput(ctx) {
 
     ctx.save();
     ctx.translate(x, y);
-    ctx.fillStyle = "#39484b";
+    const outputGradient = ctx.createLinearGradient(0, -21, 0, 21);
+    outputGradient.addColorStop(0, "#4b6970");
+    outputGradient.addColorStop(1, "#26393e");
+    ctx.fillStyle = outputGradient;
     roundedRect(ctx, -28, -20, 56, 40, 7);
     ctx.fill();
     ctx.strokeStyle = "#4fa4c8";
-    ctx.lineWidth = 4;
+    ctx.lineWidth = 3;
     ctx.stroke();
 
     ctx.fillStyle = "#9ed9ef";

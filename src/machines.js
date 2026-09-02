@@ -2277,15 +2277,35 @@ function drawConveyor(ctx, conveyor, time) {
   if (conveyor.type === "conveyorCorner" && conveyor.mirrored) ctx.scale(1, -1);
 
   const size = CONFIG.world.tileSize;
-  ctx.fillStyle = "rgba(39, 48, 35, 0.12)";
-  ctx.fillRect(-size / 2 + 4, -size / 2 + 8, size - 8, size - 16);
+  ctx.fillStyle = "rgba(39, 48, 35, 0.14)";
+  roundedRect(ctx, -size / 2 + 5, -size / 2 + 10, size - 10, size - 17, 9);
+  ctx.fill();
 
-  ctx.fillStyle = "#515d60";
+  const beltGradient = ctx.createLinearGradient(0, -17, 0, 17);
+  beltGradient.addColorStop(0, "#677477");
+  beltGradient.addColorStop(0.5, "#465154");
+  beltGradient.addColorStop(1, "#303b3e");
+  ctx.fillStyle = beltGradient;
   roundedRect(ctx, -size / 2 + 5, -15, size - 10, 30, 7);
   ctx.fill();
   ctx.strokeStyle = "#2f383b";
   ctx.lineWidth = 3;
   ctx.stroke();
+
+  ctx.strokeStyle = "rgba(255, 247, 223, 0.22)";
+  ctx.lineWidth = 3;
+  ctx.beginPath();
+  ctx.moveTo(-size / 2 + 13, -9);
+  ctx.lineTo(size / 2 - 13, -9);
+  ctx.moveTo(-size / 2 + 13, 9);
+  ctx.lineTo(size / 2 - 13, 9);
+  ctx.stroke();
+
+  ctx.fillStyle = "rgba(255, 211, 106, 0.16)";
+  for (let x = -size / 2 + 15; x <= size / 2 - 15; x += 22) {
+    roundedRect(ctx, x - 3, -12, 6, 24, 3);
+    ctx.fill();
+  }
 
   ctx.strokeStyle = "#f0a13b";
   ctx.lineWidth = 4;
