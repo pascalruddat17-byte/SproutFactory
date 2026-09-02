@@ -550,9 +550,10 @@ function drawWarehouseOutput(ctx) {
 }
 
 function drawWarehouseDock(ctx, x, y, direction, accent, mode) {
+  const visual = getDockVisualPoint(x, y, direction, mode);
   const rotation = (Math.PI / 2) * ((direction ?? 1) - 1);
   ctx.save();
-  ctx.translate(x, y);
+  ctx.translate(visual.x, visual.y);
   ctx.rotate(rotation);
 
   const dockGradient = ctx.createLinearGradient(-30, 0, 30, 0);
@@ -570,6 +571,10 @@ function drawWarehouseDock(ctx, x, y, direction, accent, mode) {
   roundedRect(ctx, -22, -11, 32, 22, 6);
   ctx.fill();
 
+  ctx.fillStyle = "rgba(255, 247, 223, 0.2)";
+  roundedRect(ctx, -30, -12, 9, 24, 4);
+  ctx.fill();
+
   ctx.fillStyle = accent;
   ctx.beginPath();
   ctx.moveTo(-18, -7);
@@ -582,6 +587,21 @@ function drawWarehouseDock(ctx, x, y, direction, accent, mode) {
   ctx.closePath();
   ctx.fill();
   ctx.restore();
+}
+
+function getDockVisualPoint(x, y, direction, mode) {
+  const vectors = [
+    { dx: 0, dy: -1 },
+    { dx: 1, dy: 0 },
+    { dx: 0, dy: 1 },
+    { dx: -1, dy: 0 },
+  ];
+  const vector = vectors[direction ?? 1] ?? vectors[1];
+  const inset = mode === "in" ? 28 : -28;
+  return {
+    x: x + vector.dx * inset,
+    y: y + vector.dy * inset,
+  };
 }
 
 function drawCrate(ctx, x, y, size) {

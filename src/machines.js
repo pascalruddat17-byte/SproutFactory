@@ -2153,8 +2153,10 @@ function drawStoragePort(ctx, port, color, label) {
   const size = CONFIG.world.tileSize;
   const point = tileToWorld(port.tileX, port.tileY);
   const isOutput = label === "OUT";
+  const vector = DIRS[port.direction ?? 1] ?? DIRS[1];
+  const inset = isOutput ? -26 : 26;
   ctx.save();
-  ctx.translate(point.x, point.y);
+  ctx.translate(point.x + vector.dx * inset, point.y + vector.dy * inset);
   ctx.rotate((Math.PI / 2) * ((port.direction ?? 1) - 1));
 
   ctx.fillStyle = "rgba(39, 48, 35, 0.14)";
@@ -2185,6 +2187,10 @@ function drawStoragePort(ctx, port, color, label) {
   ctx.moveTo(-18, 5);
   ctx.lineTo(18, 5);
   ctx.stroke();
+
+  ctx.fillStyle = "rgba(255, 247, 223, 0.2)";
+  roundedRect(ctx, -30, -12, 9, 24, 4);
+  ctx.fill();
 
   ctx.fillStyle = color;
   ctx.beginPath();
