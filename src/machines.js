@@ -2617,6 +2617,13 @@ function drawConveyor(ctx, conveyor, time) {
   if (conveyor.type === "conveyorCorner" && conveyor.mirrored) ctx.scale(1, -1);
 
   const size = CONFIG.world.tileSize;
+  if (conveyor.type === "conveyorCorner") {
+    drawCornerConveyorBody(ctx, conveyor, time, size);
+    drawLaneLevelMark(ctx, conveyor);
+    ctx.restore();
+    return;
+  }
+
   ctx.fillStyle = "rgba(39, 48, 35, 0.14)";
   roundedRect(ctx, -size / 2 + 5, -size / 2 + 10, size - 10, size - 17, 9);
   ctx.fill();
@@ -2714,6 +2721,73 @@ function drawConveyor(ctx, conveyor, time) {
   drawLaneLevelMark(ctx, conveyor);
 
   ctx.restore();
+}
+
+function drawCornerConveyorBody(ctx, conveyor, time, size) {
+  ctx.fillStyle = "rgba(39, 48, 35, 0.14)";
+  roundedRect(ctx, -16, -size / 2 + 5, size / 2 + 11, size / 2 + 22, 9);
+  ctx.fill();
+  roundedRect(ctx, -16, -16, size / 2 + 11, 31, 9);
+  ctx.fill();
+  drawConveyorConnectors(ctx, conveyor);
+
+  ctx.lineCap = "round";
+  ctx.lineJoin = "round";
+  ctx.strokeStyle = "#263437";
+  ctx.lineWidth = 39;
+  ctx.beginPath();
+  ctx.moveTo(0, -size / 2 + 8);
+  ctx.quadraticCurveTo(0, 0, size / 2 - 8, 0);
+  ctx.stroke();
+
+  ctx.strokeStyle = "#566468";
+  ctx.lineWidth = 29;
+  ctx.beginPath();
+  ctx.moveTo(0, -size / 2 + 10);
+  ctx.quadraticCurveTo(0, 0, size / 2 - 10, 0);
+  ctx.stroke();
+
+  ctx.strokeStyle = "#303b3e";
+  ctx.lineWidth = 35;
+  ctx.beginPath();
+  ctx.moveTo(0, -size / 2 + 8);
+  ctx.quadraticCurveTo(0, 0, size / 2 - 8, 0);
+  ctx.stroke();
+
+  ctx.strokeStyle = "#627174";
+  ctx.lineWidth = 24;
+  ctx.beginPath();
+  ctx.moveTo(0, -size / 2 + 12);
+  ctx.quadraticCurveTo(0, 0, size / 2 - 12, 0);
+  ctx.stroke();
+
+  ctx.strokeStyle = "rgba(255, 247, 223, 0.22)";
+  ctx.lineWidth = 3;
+  [-8, 8].forEach((offset) => {
+    ctx.beginPath();
+    ctx.moveTo(offset, -size / 2 + 13);
+    ctx.quadraticCurveTo(offset, offset, size / 2 - 13, offset);
+    ctx.stroke();
+  });
+
+  ctx.strokeStyle = "rgba(255, 211, 106, 0.22)";
+  ctx.lineWidth = 5;
+  ctx.setLineDash([9, 12]);
+  ctx.lineDashOffset = -(time * 0.035) % 21;
+  ctx.beginPath();
+  ctx.moveTo(0, -size / 2 + 13);
+  ctx.quadraticCurveTo(0, 0, size / 2 - 13, 0);
+  ctx.stroke();
+  ctx.setLineDash([]);
+
+  ctx.strokeStyle = "#f0a13b";
+  ctx.fillStyle = "#ffd36a";
+  ctx.lineWidth = 4;
+  ctx.beginPath();
+  ctx.moveTo(0, -size / 2 + 11);
+  ctx.quadraticCurveTo(0, 0, size / 2 - 10, 0);
+  ctx.stroke();
+  drawArrowHead(ctx, size / 2 - 9, 0, 0);
 }
 
 function drawConveyorConnectors(ctx, conveyor) {
