@@ -290,6 +290,28 @@ button {
   color: #263323;
 }
 
+.sand-icon {
+  background: linear-gradient(145deg, #ffe6a5, #c99445);
+  border: 2px solid #8f6530;
+  border-radius: 50% 45% 48% 42%;
+}
+
+.quartz-icon {
+  background:
+    linear-gradient(135deg, transparent 0 26%, #f8ffff 27% 46%, #74bfd1 47% 100%);
+  border: 2px solid #55798a;
+  border-radius: 5px 5px 9px 9px;
+  transform: skewX(-8deg);
+}
+
+.glass-icon {
+  background:
+    linear-gradient(135deg, rgba(255,255,255,0.88) 0 22%, transparent 23% 52%, rgba(255,255,255,0.5) 53% 66%, transparent 67%),
+    linear-gradient(145deg, #dcfbff, #77cbd8);
+  border: 2px solid #4b9bae;
+  border-radius: 5px;
+}
+
 .menu-panel {
   top: 78px;
   right: 16px;

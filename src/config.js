@@ -21,6 +21,9 @@ window.Sproutworks.CONFIG = {
     stone: 120,
     iron: 110,
     wood: 180,
+    sand: 0,
+    quartz: 0,
+    glass: 0,
   },
   storage: {
     resourceMax: 500,
@@ -84,6 +87,45 @@ window.Sproutworks.CONFIG = {
       range: 180,
       productionAmount: 1,
       productionSeconds: 3,
+    },
+    sandCollector: {
+      cost: {
+        stone: 25,
+        iron: 10,
+        wood: 30,
+      },
+      widthTiles: 2,
+      heightTiles: 2,
+      range: 0,
+      productionAmount: 1,
+      productionSeconds: 2,
+    },
+    quartzCollector: {
+      cost: {
+        stone: 45,
+        iron: 20,
+        wood: 40,
+      },
+      widthTiles: 2,
+      heightTiles: 2,
+      range: 180,
+      productionAmount: 1,
+      productionSeconds: 3.2,
+    },
+    glassFurnace: {
+      cost: {
+        stone: 65,
+        iron: 45,
+        wood: 55,
+      },
+      widthTiles: 2,
+      heightTiles: 2,
+      recipe: {
+        sand: 2,
+        quartz: 1,
+      },
+      productionAmount: 1,
+      productionSeconds: 5,
     },
     conveyorStraight: {
       cost: {

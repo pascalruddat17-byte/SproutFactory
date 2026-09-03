@@ -33,6 +33,9 @@ let hasPositionedCamera = false;
 
 setupUi(input);
 resizeCanvas();
+window.Sproutworks.cameraControls = {
+  centerOnWarehouse,
+};
 window.addEventListener("resize", resizeCanvas);
 window.addEventListener("beforeunload", () => {
   saveGame();
@@ -133,6 +136,13 @@ function resizeCanvas() {
 function clampCamera() {
   camera.x = clamp(camera.x, 0, Math.max(0, CONFIG.world.width - width / camera.zoom));
   camera.y = clamp(camera.y, 0, Math.max(0, CONFIG.world.height - height / camera.zoom));
+}
+
+function centerOnWarehouse() {
+  const warehouse = window.Sproutworks.world.warehouse;
+  camera.x = warehouse.x - width / (2 * camera.zoom);
+  camera.y = warehouse.y + 25 - height / (2 * camera.zoom);
+  clampCamera();
 }
 
 function zoomAt(factor, screenX, screenY) {
@@ -301,12 +311,18 @@ function drawMinimap() {
   ctx.fillStyle = "#8dce6d";
   ctx.fillRect(x, y, map.width, map.height);
 
+  ctx.fillStyle = "#4fa7c5";
+  world.lakes?.forEach((lake) => drawMinimapDot(x + lake.x * scaleX, y + lake.y * scaleY, 2.4));
+  ctx.fillStyle = "#d8ad58";
+  world.sandPatches?.forEach((sand) => drawMinimapDot(x + sand.x * scaleX, y + sand.y * scaleY, 1.5));
   ctx.fillStyle = "#2f6f3b";
   world.trees.forEach((tree) => drawMinimapDot(x + tree.x * scaleX, y + tree.y * scaleY, 1.6));
   ctx.fillStyle = "#7f8580";
   world.rocks.forEach((rock) => drawMinimapDot(x + rock.x * scaleX, y + rock.y * scaleY, 1.4));
   ctx.fillStyle = "#b86c44";
   world.ironOres.forEach((ore) => drawMinimapDot(x + ore.x * scaleX, y + ore.y * scaleY, 1.4));
+  ctx.fillStyle = "#8bdbe6";
+  world.quartzNodes?.forEach((quartz) => drawMinimapDot(x + quartz.x * scaleX, y + quartz.y * scaleY, 1.5));
   ctx.fillStyle = "#f0a13b";
   state.machines.forEach((machine) => drawMinimapDot(x + machine.x * scaleX, y + machine.y * scaleY, 2.1));
 

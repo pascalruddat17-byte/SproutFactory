@@ -58,6 +58,10 @@ let ironOres = [
   { x: 3320, y: 2700, r: 35 },
 ];
 
+let lakes = [];
+let sandPatches = [];
+let quartzNodes = [];
+
 const bushes = [
   { x: 440, y: 570, s: 1.1 },
   { x: 1220, y: 500, s: 0.9 },
@@ -114,14 +118,18 @@ function getNodeCounts() {
     trees: 28 * areaScale,
     rocks: 11 * areaScale,
     ironOres: 7 * areaScale,
+    lakes: Math.max(2, 2 * areaScale),
+    quartzNodes: 6 * areaScale,
   };
 }
 
 function rebuildObstacles() {
   obstacles = [
-    ...trees.map((tree) => ({ x: tree.x, y: tree.y + 18, r: tree.r * 0.58 })),
-    ...rocks.map((rock) => ({ x: rock.x, y: rock.y, r: rock.r })),
-    ...ironOres.map((ore) => ({ x: ore.x, y: ore.y, r: ore.r })),
+    ...trees.map((tree) => ({ x: tree.x, y: tree.y + 18, r: tree.r * 0.58, source: "tree" })),
+    ...rocks.map((rock) => ({ x: rock.x, y: rock.y, r: rock.r, source: "rock" })),
+    ...ironOres.map((ore) => ({ x: ore.x, y: ore.y, r: ore.r, source: "ironOre" })),
+    ...sandPatches.map((sand) => ({ x: sand.x, y: sand.y, r: sand.r, source: "sand" })),
+    ...quartzNodes.map((quartz) => ({ x: quartz.x, y: quartz.y, r: quartz.r, source: "quartz" })),
   ];
 }
 
@@ -130,6 +138,9 @@ function syncWorldExports() {
   window.Sproutworks.world.trees = trees;
   window.Sproutworks.world.rocks = rocks;
   window.Sproutworks.world.ironOres = ironOres;
+  window.Sproutworks.world.lakes = lakes;
+  window.Sproutworks.world.sandPatches = sandPatches;
+  window.Sproutworks.world.quartzNodes = quartzNodes;
   window.Sproutworks.world.obstacles = obstacles;
 }
 
@@ -139,6 +150,8 @@ function applyRemovedSources() {
   trees = trees.filter((tree) => !removed.has(tree.id));
   rocks = rocks.filter((rock) => !removed.has(rock.id));
   ironOres = ironOres.filter((ore) => !removed.has(ore.id));
+  sandPatches = sandPatches.filter((sand) => !removed.has(sand.id));
+  quartzNodes = quartzNodes.filter((quartz) => !removed.has(quartz.id));
 }
 
 function regenerateWorld(random = Math.random) {
@@ -161,9 +174,18 @@ function regenerateWorld(random = Math.random) {
     return nodes;
   }
 
+  lakes = createNodes(counts.lakes, 170, (x, y) => ({ id: `lake-${Math.round(x)}-${Math.round(y)}`, x, y, rx: 155 + random() * 60, ry: 90 + random() * 35, r: 165 }));
+  sandPatches = lakes.flatMap((lake, lakeIndex) => [-1, 1].map((side, index) => ({
+    id: `sand-${lakeIndex}-${index}-${Math.round(lake.x)}-${Math.round(lake.y)}`,
+    x: Math.max(130, Math.min(CONFIG.world.width - 130, lake.x + side * (lake.rx * 0.72))),
+    y: Math.max(130, Math.min(CONFIG.world.height - 130, lake.y + (index === 0 ? lake.ry * 0.54 : -lake.ry * 0.5))),
+    r: 38 + random() * 10,
+  })));
+  sandPatches.forEach((sand) => occupied.push(sand));
   trees = createNodes(counts.trees, 64, (x, y) => ({ id: `tree-${Math.round(x)}-${Math.round(y)}`, x, y, r: 50 + random() * 20, kind: random() > 0.55 ? "pine" : "round" }));
   rocks = createNodes(counts.rocks, 36, (x, y) => ({ id: `rock-${Math.round(x)}-${Math.round(y)}`, x, y, r: 27 + random() * 9 }));
   ironOres = createNodes(counts.ironOres, 38, (x, y) => ({ id: `ore-${Math.round(x)}-${Math.round(y)}`, x, y, r: 29 + random() * 8 }));
+  quartzNodes = createNodes(counts.quartzNodes, 42, (x, y) => ({ id: `quartz-${Math.round(x)}-${Math.round(y)}`, x, y, r: 30 + random() * 9 }));
   applyRemovedSources();
   rebuildObstacles();
   syncWorldExports();
@@ -199,6 +221,8 @@ function getResourceSourceAt(x, y) {
     ...trees.map((node) => ({ node, radius: node.r * 0.9 })),
     ...rocks.map((node) => ({ node, radius: node.r + 18 })),
     ...ironOres.map((node) => ({ node, radius: node.r + 18 })),
+    ...sandPatches.map((node) => ({ node, radius: node.r + 20 })),
+    ...quartzNodes.map((node) => ({ node, radius: node.r + 18 })),
   ];
   return candidates
     .map((candidate) => ({ ...candidate, distance: Math.hypot(x - candidate.node.x, y - candidate.node.y) }))
@@ -213,6 +237,8 @@ function removeResourceSourceAt(x, y) {
   trees = trees.filter((tree) => tree !== target);
   rocks = rocks.filter((rock) => rock !== target);
   ironOres = ironOres.filter((ore) => ore !== target);
+  sandPatches = sandPatches.filter((sand) => sand !== target);
+  quartzNodes = quartzNodes.filter((quartz) => quartz !== target);
 
   if (target.id) {
     const removed = window.Sproutworks.state?.removedSources;
@@ -304,9 +330,85 @@ function drawScenery(ctx, time) {
   grass.forEach((blade) => drawGrass(ctx, blade.x, blade.y, blade.h));
   leaves.forEach((leaf) => drawLeaf(ctx, leaf.x, leaf.y, leaf.a, time));
   bushes.forEach((bush) => drawBush(ctx, bush.x, bush.y, bush.s));
+  lakes.forEach((lake) => drawLake(ctx, lake));
+  sandPatches.forEach((sand) => drawSandPatch(ctx, sand));
   rocks.forEach((rock) => drawRock(ctx, rock.x, rock.y, rock.r));
   ironOres.forEach((ore) => drawIronOre(ctx, ore.x, ore.y, ore.r));
+  quartzNodes.forEach((quartz) => drawQuartzNode(ctx, quartz));
   trees.sort((a, b) => a.y - b.y).forEach((tree) => drawTree(ctx, tree));
+}
+
+function drawLake(ctx, lake) {
+  ctx.fillStyle = "rgba(35, 78, 91, 0.14)";
+  ctx.beginPath();
+  ctx.ellipse(lake.x + 8, lake.y + 12, lake.rx * 1.08, lake.ry * 0.9, -0.08, 0, Math.PI * 2);
+  ctx.fill();
+
+  const water = ctx.createRadialGradient(lake.x - lake.rx * 0.25, lake.y - lake.ry * 0.25, 20, lake.x, lake.y, lake.rx);
+  water.addColorStop(0, "#8fd8e6");
+  water.addColorStop(0.58, "#4fa7c5");
+  water.addColorStop(1, "#2f7894");
+  ctx.fillStyle = water;
+  ctx.beginPath();
+  ctx.ellipse(lake.x, lake.y, lake.rx, lake.ry, -0.08, 0, Math.PI * 2);
+  ctx.fill();
+
+  ctx.strokeStyle = "rgba(244, 215, 128, 0.78)";
+  ctx.lineWidth = 9;
+  ctx.beginPath();
+  ctx.ellipse(lake.x, lake.y, lake.rx + 5, lake.ry + 5, -0.08, 0, Math.PI * 2);
+  ctx.stroke();
+  ctx.fillStyle = "rgba(255,255,255,0.26)";
+  roundedRect(ctx, lake.x - lake.rx * 0.45, lake.y - lake.ry * 0.46, lake.rx * 0.55, 8, 4);
+  ctx.fill();
+}
+
+function drawSandPatch(ctx, sand) {
+  ctx.fillStyle = "rgba(68, 59, 35, 0.12)";
+  ctx.beginPath();
+  ctx.ellipse(sand.x + 5, sand.y + 9, sand.r * 1.1, sand.r * 0.45, 0, 0, Math.PI * 2);
+  ctx.fill();
+
+  const grain = ctx.createLinearGradient(sand.x - sand.r, sand.y - sand.r, sand.x + sand.r, sand.y + sand.r);
+  grain.addColorStop(0, "#ffe29a");
+  grain.addColorStop(0.7, "#d8ad58");
+  grain.addColorStop(1, "#b88638");
+  ctx.fillStyle = grain;
+  ctx.beginPath();
+  ctx.ellipse(sand.x, sand.y, sand.r, sand.r * 0.62, -0.15, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.strokeStyle = "rgba(141, 102, 40, 0.58)";
+  ctx.lineWidth = 3;
+  ctx.stroke();
+}
+
+function drawQuartzNode(ctx, quartz) {
+  ctx.fillStyle = "rgba(39, 48, 35, 0.15)";
+  ctx.beginPath();
+  ctx.ellipse(quartz.x + 5, quartz.y + 15, quartz.r * 1.05, quartz.r * 0.38, 0, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.strokeStyle = "#55798a";
+  ctx.lineWidth = 3;
+  [-0.45, 0, 0.42].forEach((offset, index) => {
+    const h = quartz.r * (1.55 - index * 0.2);
+    const w = quartz.r * 0.36;
+    const cx = quartz.x + offset * quartz.r;
+    const top = quartz.y - h * 0.7;
+    const crystal = ctx.createLinearGradient(cx - w, top, cx + w, quartz.y + quartz.r * 0.45);
+    crystal.addColorStop(0, "#f8ffff");
+    crystal.addColorStop(0.48, "#b9edf2");
+    crystal.addColorStop(1, "#66adc4");
+    ctx.fillStyle = crystal;
+    ctx.beginPath();
+    ctx.moveTo(cx, top);
+    ctx.lineTo(cx + w, quartz.y - h * 0.08);
+    ctx.lineTo(cx + w * 0.72, quartz.y + quartz.r * 0.45);
+    ctx.lineTo(cx - w * 0.72, quartz.y + quartz.r * 0.45);
+    ctx.lineTo(cx - w, quartz.y - h * 0.08);
+    ctx.closePath();
+    ctx.fill();
+    ctx.stroke();
+  });
 }
 
 function drawGrass(ctx, x, y, h) {
@@ -717,6 +819,9 @@ window.Sproutworks.world = {
   obstacles,
   rocks,
   ironOres,
+  lakes,
+  sandPatches,
+  quartzNodes,
   trees,
   warehouse,
 };

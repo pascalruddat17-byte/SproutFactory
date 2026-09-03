@@ -63,19 +63,26 @@ function updateMachines(delta) {
     const route = getConveyorRoute(machine);
     const startConveyor = getStartingConveyor(machine);
     const hasSource = productionConfig.hasSource(machine.x, machine.y, productionConfig.range);
+    const hasInputs = hasRecipeInputs(productionConfig.recipe);
     machine.connected = route.reachesWarehouse;
-    machine.active = hasSource && Boolean(startConveyor);
-    machine.status = !hasSource ? "no-source" : !startConveyor ? "no-output" : "working";
+    machine.active = hasSource && hasInputs && Boolean(startConveyor);
+    machine.status = !hasSource ? "no-source" : !hasInputs ? "no-input" : !startConveyor ? "no-output" : "working";
     if (!machine.active) return;
 
     machine.productionTimer = Math.min(machine.productionTimer + delta, productionConfig.productionSeconds * 2);
     while (machine.productionTimer >= productionConfig.productionSeconds) {
+      if (!hasRecipeInputs(productionConfig.recipe)) {
+        machine.productionTimer = productionConfig.productionSeconds;
+        machine.status = "no-input";
+        break;
+      }
       if (!canSpawnItemAt(startConveyor.conveyor, productionConfig.resource)) {
         machine.productionTimer = productionConfig.productionSeconds;
         machine.status = "blocked";
         break;
       }
       machine.productionTimer -= productionConfig.productionSeconds;
+      payRecipeInputs(productionConfig.recipe);
       spawnResourceItem(machine, startConveyor, productionConfig.resource, productionConfig.productionAmount);
     }
   });
@@ -99,7 +106,7 @@ function canPlaceBuildable(type, worldX, worldY, ignoreId = null) {
     const machine = getMachineAtTile(spot.tileX, spot.tileY);
     return machine && machine.id !== ignoreId;
   })) return { ok: false, reason: "occupied", tile };
-  if (tiles.some((spot) => isTileBlockedByNature(spot.tileX, spot.tileY))) return { ok: false, reason: "obstacle", tile };
+  if (tiles.some((spot) => isTileBlockedByNature(spot.tileX, spot.tileY, type))) return { ok: false, reason: "obstacle", tile };
 
   if (type === "storageUnit") {
     const placementRotation = state.moveMode && state.movingMachineId ? state.moveRotation : state.buildRotation;
@@ -170,7 +177,7 @@ function getPlacementErrorMessage(type, worldX, worldY) {
     "outside-map": "Das ist ausserhalb der Map.",
     warehouse: "Das Lager und seine Einfahrt muessen frei bleiben.",
     occupied: "Da steht schon etwas.",
-    obstacle: "Baeume, Steine und Erze blockieren diese Kachel.",
+    obstacle: "Baeume, Steine, Erze und Quarz blockieren diese Kachel.",
     "port-blocked": "Ein- und Ausgang vom Lager brauchen freie Kacheln.",
     "no-source": "Diese Fabrik muss nah an der passenden Ressource stehen.",
     "warehouse-range": "Das Aussenlager muss in Reichweite vom Hauptlager stehen.",
@@ -195,6 +202,9 @@ function getBuildName(type) {
     woodCollector: "Holzfabrik",
     stoneCollector: "Steinfabrik",
     ironCollector: "Metallfabrik",
+    sandCollector: "Sandsammler",
+    quartzCollector: "Quarzsammler",
+    glassFurnace: "Heizofen",
     conveyorStraight: "Foerderband",
     conveyorCorner: "Eckfoerderband",
     conveyorMerger: "Zusammenfuehrer",
@@ -230,6 +240,8 @@ function harvestResourceAt(worldX, worldY) {
     ...world.trees.map((node) => ({ node, resource: "wood", radius: node.r * 0.9 })),
     ...world.rocks.map((node) => ({ node, resource: "stone", radius: node.r + 18 })),
     ...world.ironOres.map((node) => ({ node, resource: "iron", radius: node.r + 18 })),
+    ...world.sandPatches.map((node) => ({ node, resource: "sand", radius: node.r + 20 })),
+    ...world.quartzNodes.map((node) => ({ node, resource: "quartz", radius: node.r + 18 })),
   ];
   const target = candidates
     .map((candidate) => ({ ...candidate, distance: Math.hypot(worldX - candidate.node.x, worldY - candidate.node.y) }))
@@ -378,6 +390,9 @@ function drawMachines(ctx, time) {
     if (machine.type === "woodCollector") drawWoodCollector(ctx, machine, time);
     if (machine.type === "stoneCollector") drawStoneCollector(ctx, machine, time);
     if (machine.type === "ironCollector") drawIronCollector(ctx, machine, time);
+    if (machine.type === "sandCollector") drawSandCollector(ctx, machine, time);
+    if (machine.type === "quartzCollector") drawQuartzCollector(ctx, machine, time);
+    if (machine.type === "glassFurnace") drawGlassFurnace(ctx, machine, time);
     if (machine.type === "storageUnit") drawStorageUnit(ctx, machine);
     if (machine.type === "storageDepot") drawStorageDepot(ctx, machine);
     if (machine.type === "trashCan") drawTrashCan(ctx, machine);
@@ -431,6 +446,9 @@ function drawBuildPreview(ctx, camera, pointerWorld, time) {
   if (state.buildMode === "woodCollector") drawWoodCollector(ctx, preview, time);
   if (state.buildMode === "stoneCollector") drawStoneCollector(ctx, preview, time);
   if (state.buildMode === "ironCollector") drawIronCollector(ctx, preview, time);
+  if (state.buildMode === "sandCollector") drawSandCollector(ctx, preview, time);
+  if (state.buildMode === "quartzCollector") drawQuartzCollector(ctx, preview, time);
+  if (state.buildMode === "glassFurnace") drawGlassFurnace(ctx, preview, time);
   if (state.buildMode === "storageUnit") drawStorageUnit(ctx, preview);
   if (state.buildMode === "storageDepot") drawStorageDepot(ctx, preview);
   if (state.buildMode === "trashCan") drawTrashCan(ctx, preview);
@@ -509,6 +527,9 @@ function drawMovePreview(ctx, camera, pointerWorld, time) {
   if (preview.type === "woodCollector") drawWoodCollector(ctx, preview, time);
   if (preview.type === "stoneCollector") drawStoneCollector(ctx, preview, time);
   if (preview.type === "ironCollector") drawIronCollector(ctx, preview, time);
+  if (preview.type === "sandCollector") drawSandCollector(ctx, preview, time);
+  if (preview.type === "quartzCollector") drawQuartzCollector(ctx, preview, time);
+  if (preview.type === "glassFurnace") drawGlassFurnace(ctx, preview, time);
   if (preview.type === "storageUnit") drawStorageUnit(ctx, preview);
   if (preview.type === "storageDepot") drawStorageDepot(ctx, preview);
   if (preview.type === "trashCan") drawTrashCan(ctx, preview);
@@ -554,9 +575,12 @@ function getMachineById(id) {
   return state.machines.find((machine) => machine.id === id);
 }
 
-function isTileBlockedByNature(tileX, tileY) {
+function isTileBlockedByNature(tileX, tileY, placementType = "") {
   const center = tileToWorld(tileX, tileY);
-  return window.Sproutworks.world.obstacles.some((obstacle) => Math.hypot(center.x - obstacle.x, center.y - obstacle.y) < obstacle.r + 24);
+  return window.Sproutworks.world.obstacles.some((obstacle) => {
+    if (placementType === "sandCollector" && obstacle.source === "sand") return false;
+    return Math.hypot(center.x - obstacle.x, center.y - obstacle.y) < obstacle.r + 24;
+  });
 }
 
 function getWarehouseInputTile() {
@@ -773,6 +797,26 @@ function hasRockInRange(x, y, range) {
 
 function hasIronOreInRange(x, y, range) {
   return window.Sproutworks.world.ironOres.some((ore) => Math.hypot(x - ore.x, y - ore.y) <= range + ore.r);
+}
+
+function hasSandUnderCollector(x, y) {
+  return window.Sproutworks.world.sandPatches.some((sand) => Math.hypot(x - sand.x, y - sand.y) <= sand.r + CONFIG.world.tileSize * 0.72);
+}
+
+function hasQuartzInRange(x, y, range) {
+  return window.Sproutworks.world.quartzNodes.some((quartz) => Math.hypot(x - quartz.x, y - quartz.y) <= range + quartz.r);
+}
+
+function hasRecipeInputs(recipe) {
+  if (!recipe) return true;
+  return Object.entries(recipe).every(([resource, amount]) => (state.resources[resource] ?? 0) >= amount);
+}
+
+function payRecipeInputs(recipe) {
+  if (!recipe) return;
+  Object.entries(recipe).forEach(([resource, amount]) => {
+    state.resources[resource] = Math.max(0, (state.resources[resource] ?? 0) - amount);
+  });
 }
 
 function getProductionConfig(machine) {
@@ -1101,6 +1145,37 @@ function updateWarehouseOutputs(delta) {
     }
     state.warehouseOutputTimer -= CONFIG.storage.outputSeconds;
     window.Sproutworks.save?.markSaveDirty();
+  }
+
+  if (machine.type === "sandCollector") {
+    return {
+      resource: "sand",
+      range: CONFIG.machines.sandCollector.range,
+      productionAmount: CONFIG.machines.sandCollector.productionAmount,
+      productionSeconds: CONFIG.machines.sandCollector.productionSeconds,
+      hasSource: hasSandUnderCollector,
+    };
+  }
+
+  if (machine.type === "quartzCollector") {
+    return {
+      resource: "quartz",
+      range: CONFIG.machines.quartzCollector.range,
+      productionAmount: CONFIG.machines.quartzCollector.productionAmount,
+      productionSeconds: CONFIG.machines.quartzCollector.productionSeconds,
+      hasSource: hasQuartzInRange,
+    };
+  }
+
+  if (machine.type === "glassFurnace") {
+    return {
+      resource: "glass",
+      range: 0,
+      productionAmount: CONFIG.machines.glassFurnace.productionAmount,
+      productionSeconds: CONFIG.machines.glassFurnace.productionSeconds,
+      recipe: CONFIG.machines.glassFurnace.recipe,
+      hasSource: () => true,
+    };
   }
 }
 
@@ -1748,24 +1823,17 @@ function drawItems(ctx) {
     ctx.fill();
 
     const itemGradient = ctx.createLinearGradient(-11, -9, 11, 7);
-    if (item.type === "stone") {
-      itemGradient.addColorStop(0, "#d7d5c8");
-      itemGradient.addColorStop(1, "#969b92");
-    } else if (item.type === "iron") {
-      itemGradient.addColorStop(0, "#c8d4d7");
-      itemGradient.addColorStop(1, "#667a80");
-    } else {
-      itemGradient.addColorStop(0, "#e9a75a");
-      itemGradient.addColorStop(1, "#9f5b32");
-    }
+    const palette = getItemPalette(item.type);
+    itemGradient.addColorStop(0, palette.light);
+    itemGradient.addColorStop(1, palette.dark);
     ctx.fillStyle = itemGradient;
     roundedRect(ctx, -11, -9, 22, 16, 4);
     ctx.fill();
-    ctx.strokeStyle = item.type === "stone" ? "#6f766e" : item.type === "iron" ? "#516368" : "#744424";
+    ctx.strokeStyle = palette.stroke;
     ctx.lineWidth = 2;
     ctx.stroke();
 
-    ctx.strokeStyle = item.type === "stone" ? "#e7e5d9" : item.type === "iron" ? "#dce6e8" : "#f0b05a";
+    ctx.strokeStyle = palette.highlight;
     ctx.lineWidth = 2;
     ctx.beginPath();
     ctx.moveTo(-7, -3);
@@ -1817,6 +1885,9 @@ function getResourceLabel(resource) {
     wood: "Holz",
     stone: "Stein",
     iron: "Eisen",
+    sand: "Sand",
+    quartz: "Quarz",
+    glass: "Glas",
   }[resource] ?? resource;
 }
 
@@ -2012,6 +2083,144 @@ function drawIronCollector(ctx, machine, time) {
   ctx.restore();
 }
 
+function drawSandCollector(ctx, machine, time) {
+  ctx.save();
+  ctx.translate(machine.x, machine.y);
+
+  ctx.fillStyle = "rgba(39, 48, 35, 0.14)";
+  ctx.beginPath();
+  ctx.ellipse(0, 46, 64, 20, 0, 0, Math.PI * 2);
+  ctx.fill();
+
+  const bodyGradient = ctx.createLinearGradient(0, -48, 0, 44);
+  bodyGradient.addColorStop(0, "#7d9294");
+  bodyGradient.addColorStop(0.52, "#5a7073");
+  bodyGradient.addColorStop(1, "#34484d");
+  ctx.fillStyle = bodyGradient;
+  roundedRect(ctx, -56, -48, 112, 92, 8);
+  ctx.fill();
+  ctx.strokeStyle = "#2f4448";
+  ctx.lineWidth = 4;
+  ctx.stroke();
+
+  const sandTray = ctx.createLinearGradient(-42, -30, 42, -4);
+  sandTray.addColorStop(0, "#ffe6a5");
+  sandTray.addColorStop(1, "#d7a653");
+  ctx.fillStyle = sandTray;
+  roundedRect(ctx, -42, -30, 84, 26, 5);
+  ctx.fill();
+  drawMachineBolts(ctx, 46, -38);
+
+  ctx.strokeStyle = machine.active ? "#ffd36a" : "#b5beb8";
+  ctx.lineWidth = 6;
+  ctx.beginPath();
+  ctx.moveTo(-33, 25 + Math.sin(time * 0.006) * 2);
+  ctx.quadraticCurveTo(-6, 5, 26, 24);
+  ctx.stroke();
+  ctx.fillStyle = machine.active ? "#7bd34c" : machine.connected ? "#ffd36a" : "#929b96";
+  ctx.beginPath();
+  ctx.arc(42, -34, 6, 0, Math.PI * 2);
+  ctx.fill();
+
+  drawFactoryStatusBadge(ctx, machine);
+  ctx.restore();
+}
+
+function drawQuartzCollector(ctx, machine, time) {
+  ctx.save();
+  ctx.translate(machine.x, machine.y);
+
+  ctx.fillStyle = "rgba(39, 48, 35, 0.15)";
+  ctx.beginPath();
+  ctx.ellipse(0, 46, 64, 20, 0, 0, Math.PI * 2);
+  ctx.fill();
+
+  const bodyGradient = ctx.createLinearGradient(0, -48, 0, 44);
+  bodyGradient.addColorStop(0, "#7991a0");
+  bodyGradient.addColorStop(0.52, "#566c7a");
+  bodyGradient.addColorStop(1, "#31424e");
+  ctx.fillStyle = bodyGradient;
+  roundedRect(ctx, -56, -48, 112, 92, 8);
+  ctx.fill();
+  ctx.strokeStyle = "#2c3f48";
+  ctx.lineWidth = 4;
+  ctx.stroke();
+
+  const crystalGlow = ctx.createLinearGradient(-38, -31, 38, -5);
+  crystalGlow.addColorStop(0, "#eefcff");
+  crystalGlow.addColorStop(1, "#81d7e4");
+  ctx.fillStyle = crystalGlow;
+  roundedRect(ctx, -42, -31, 84, 25, 5);
+  ctx.fill();
+  drawMachineBolts(ctx, 46, -38);
+
+  ctx.strokeStyle = machine.active ? "#baf7ff" : "#b5beb8";
+  ctx.lineWidth = 5;
+  ctx.beginPath();
+  ctx.moveTo(-24, 28);
+  ctx.lineTo(-6, 2 + Math.sin(time * 0.006) * 2);
+  ctx.lineTo(13, 28);
+  ctx.lineTo(33, 3);
+  ctx.stroke();
+
+  ctx.fillStyle = machine.active ? "#7bd34c" : machine.connected ? "#ffd36a" : "#929b96";
+  ctx.beginPath();
+  ctx.arc(42, -34, 6, 0, Math.PI * 2);
+  ctx.fill();
+
+  drawFactoryStatusBadge(ctx, machine);
+  ctx.restore();
+}
+
+function drawGlassFurnace(ctx, machine, time) {
+  ctx.save();
+  ctx.translate(machine.x, machine.y);
+
+  ctx.fillStyle = "rgba(39, 48, 35, 0.17)";
+  ctx.beginPath();
+  ctx.ellipse(0, 48, 66, 21, 0, 0, Math.PI * 2);
+  ctx.fill();
+
+  const bodyGradient = ctx.createLinearGradient(0, -50, 0, 46);
+  bodyGradient.addColorStop(0, "#796d68");
+  bodyGradient.addColorStop(0.5, "#574f4e");
+  bodyGradient.addColorStop(1, "#36383b");
+  ctx.fillStyle = bodyGradient;
+  roundedRect(ctx, -58, -50, 116, 96, 8);
+  ctx.fill();
+  ctx.strokeStyle = "#2f3436";
+  ctx.lineWidth = 4;
+  ctx.stroke();
+
+  const heat = ctx.createRadialGradient(0, 10, 4, 0, 10, 48);
+  heat.addColorStop(0, machine.active ? "#fff2a8" : "#ffd36a");
+  heat.addColorStop(0.55, "#f0a13b");
+  heat.addColorStop(1, "#a9492f");
+  ctx.fillStyle = heat;
+  roundedRect(ctx, -38, -8, 76, 44, 7);
+  ctx.fill();
+
+  ctx.fillStyle = "#2f3b3e";
+  roundedRect(ctx, -44, -36, 88, 18, 5);
+  ctx.fill();
+  ctx.fillStyle = "#b9edf2";
+  roundedRect(ctx, -33, -31, 66, 8, 4);
+  ctx.fill();
+  drawMachineBolts(ctx, 47, -39);
+
+  ctx.fillStyle = "rgba(255, 211, 106, 0.24)";
+  ctx.beginPath();
+  ctx.arc(0, 10, 34 + Math.sin(time * 0.006) * 2, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.fillStyle = machine.active ? "#7bd34c" : machine.connected ? "#ffd36a" : "#929b96";
+  ctx.beginPath();
+  ctx.arc(42, -35, 6, 0, Math.PI * 2);
+  ctx.fill();
+
+  drawFactoryStatusBadge(ctx, machine);
+  ctx.restore();
+}
+
 function drawMachineBolts(ctx, x, y) {
   ctx.fillStyle = "rgba(255, 247, 223, 0.52)";
   [-1, 1].forEach((side) => {
@@ -2022,6 +2231,17 @@ function drawMachineBolts(ctx, x, y) {
     ctx.arc(x * side, -y + 8, 3, 0, Math.PI * 2);
     ctx.fill();
   });
+}
+
+function getItemPalette(resource) {
+  return {
+    wood: { light: "#e9a75a", dark: "#9f5b32", stroke: "#744424", highlight: "#f0b05a" },
+    stone: { light: "#d7d5c8", dark: "#969b92", stroke: "#6f766e", highlight: "#e7e5d9" },
+    iron: { light: "#c8d4d7", dark: "#667a80", stroke: "#516368", highlight: "#dce6e8" },
+    sand: { light: "#ffe6a5", dark: "#c99445", stroke: "#8f6530", highlight: "#fff1bd" },
+    quartz: { light: "#f8ffff", dark: "#74bfd1", stroke: "#55798a", highlight: "#ffffff" },
+    glass: { light: "#dcfbff", dark: "#77cbd8", stroke: "#4b9bae", highlight: "#ffffff" },
+  }[resource] ?? { light: "#b9e989", dark: "#67a84b", stroke: "#4d6f3b", highlight: "#e9ffd4" };
 }
 
 function drawFactoryStatusBadge(ctx, machine) {
@@ -2035,12 +2255,14 @@ function drawFactoryStatusBadge(ctx, machine) {
     working: "LAEUFT",
     blocked: "STAU",
     "no-source": "QUELLE",
+    "no-input": "INPUT",
     "no-output": "BAND",
   }[machine.status] ?? "WARTET";
   const color = {
     working: "#4f9f43",
     blocked: "#d85f45",
     "no-source": "#d9893d",
+    "no-input": "#d9893d",
     "no-output": "#d9893d",
   }[machine.status] ?? "#929b96";
 
@@ -2227,6 +2449,9 @@ function getResourceColor(resource) {
     wood: "#c87838",
     stone: "#aeb2aa",
     iron: "#8b9da2",
+    sand: "#d8ad58",
+    quartz: "#8bdbe6",
+    glass: "#93e3ef",
     coin: "#f2b84b",
   }[resource] ?? "#7bd34c";
 }

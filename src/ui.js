@@ -101,6 +101,7 @@ function setupUi(input) {
   const shopButton = document.querySelector("#shopButton");
   const menuPanel = document.querySelector("#menuPanel");
   const reloadMapButton = document.querySelector("#reloadMapButton");
+  const centerWarehouseButton = document.querySelector("#centerWarehouseButton");
   const resetGameButton = document.querySelector("#resetGameButton");
   const codeInput = document.querySelector("#codeInput");
   const codeButton = document.querySelector("#codeButton");
@@ -123,6 +124,9 @@ function setupUi(input) {
   const buildWoodCollectorButton = document.querySelector("#buildWoodCollectorButton");
   const buildStoneCollectorButton = document.querySelector("#buildStoneCollectorButton");
   const buildIronCollectorButton = document.querySelector("#buildIronCollectorButton");
+  const buildSandCollectorButton = document.querySelector("#buildSandCollectorButton");
+  const buildQuartzCollectorButton = document.querySelector("#buildQuartzCollectorButton");
+  const buildGlassFurnaceButton = document.querySelector("#buildGlassFurnaceButton");
   const buildConveyorStraightButton = document.querySelector("#buildConveyorStraightButton");
   const buildConveyorCornerButton = document.querySelector("#buildConveyorCornerButton");
   const buildConveyorMergerButton = document.querySelector("#buildConveyorMergerButton");
@@ -167,6 +171,9 @@ function setupUi(input) {
     [buildWoodCollectorButton, "woodCollector"],
     [buildStoneCollectorButton, "stoneCollector"],
     [buildIronCollectorButton, "ironCollector"],
+    [buildSandCollectorButton, "sandCollector"],
+    [buildQuartzCollectorButton, "quartzCollector"],
+    [buildGlassFurnaceButton, "glassFurnace"],
     [buildConveyorStraightButton, "conveyorStraight"],
     [buildConveyorCornerButton, "conveyorCorner"],
     [buildConveyorMergerButton, "conveyorMerger"],
@@ -254,8 +261,15 @@ function setupUi(input) {
       reloadCodeUnlocked = false;
       codeInput.value = "";
       reloadMapButton.textContent = "Neue Map laden · 500 Coin";
+      window.Sproutworks.cameraControls?.centerOnWarehouse();
       window.Sproutworks.save?.markSaveDirty();
     }, CONFIG.mapReload.durationMs);
+  });
+
+  centerWarehouseButton.addEventListener("click", () => {
+    window.Sproutworks.cameraControls?.centerOnWarehouse();
+    menuPanel.hidden = true;
+    showToast("Zurueck beim Hauptlager.");
   });
 
   resetGameButton.addEventListener("click", () => {
@@ -272,6 +286,7 @@ function setupUi(input) {
     harvestButton.classList.remove("active");
     sourceClearButton.classList.remove("active");
     setBuildHintVisible(false);
+    window.Sproutworks.cameraControls?.centerOnWarehouse();
     updateResourceCounters(resourceBar, state.resources);
     updateResourceCounters(warehouseResources, state.resources);
   });
@@ -461,6 +476,18 @@ function setupUi(input) {
 
   buildIronCollectorButton.addEventListener("click", () => {
     startBuildMode("ironCollector");
+  });
+
+  buildSandCollectorButton.addEventListener("click", () => {
+    startBuildMode("sandCollector");
+  });
+
+  buildQuartzCollectorButton.addEventListener("click", () => {
+    startBuildMode("quartzCollector");
+  });
+
+  buildGlassFurnaceButton.addEventListener("click", () => {
+    startBuildMode("glassFurnace");
   });
 
   buildConveyorStraightButton.addEventListener("click", () => {
@@ -733,6 +760,9 @@ function getBuildName(type) {
     woodCollector: "Holzfabrik",
     stoneCollector: "Steinfabrik",
     ironCollector: "Metallfabrik",
+    sandCollector: "Sandsammler",
+    quartzCollector: "Quarzsammler",
+    glassFurnace: "Heizofen",
     conveyorStraight: "Foerderband",
     conveyorCorner: "Eckfoerderband",
     conveyorMerger: "Zusammenfuehrer",
@@ -774,11 +804,14 @@ function updateFactoryStatus(factoryStatus) {
     machine.type === "woodCollector"
     || machine.type === "stoneCollector"
     || machine.type === "ironCollector"
+    || machine.type === "sandCollector"
+    || machine.type === "quartzCollector"
+    || machine.type === "glassFurnace"
   ));
   const storages = state.machines.filter((machine) => machine.type === "storageUnit");
   const activeFactories = factories.filter((machine) => machine.status === "working").length;
   const blocked = state.machines.filter((machine) => machine.status === "blocked").length;
-  const idle = factories.filter((machine) => machine.status === "no-source" || machine.status === "no-output").length;
+  const idle = factories.filter((machine) => machine.status === "no-source" || machine.status === "no-input" || machine.status === "no-output").length;
 
   factoryStatus.innerHTML = `
     <div class="factory-status-row"><span>Fabriken aktiv</span><strong>${activeFactories}/${factories.length}</strong></div>
@@ -883,6 +916,7 @@ function getMachineStatusText(machine) {
     working: "Laeuft",
     blocked: "Blockiert",
     "no-source": "Keine Ressource",
+    "no-input": "Kein Input",
     "no-output": "Kein Ausgang",
     empty: "Leer",
   }[machine.status] ?? (machine.connected ? "Verbunden" : "Wartet");
@@ -890,7 +924,9 @@ function getMachineStatusText(machine) {
 
 function getMachineNote(machine) {
   if (machine.status === "blocked") return "Das naechste Band ist voll. Loese den Stau oder baue mehr Weg.";
-  if (machine.status === "no-source") return "Diese Fabrik muss naeher an Baum, Stein oder Erz stehen.";
+  if (machine.status === "no-source" && machine.type === "sandCollector") return "Der Sandsammler muss direkt auf Sand am Seeufer stehen.";
+  if (machine.status === "no-source") return "Diese Fabrik muss naeher an Baum, Stein, Erz oder Quarz stehen.";
+  if (machine.status === "no-input") return "Der Heizofen braucht 2 Sand und 1 Quarz im Hauptlager, bevor er Glas ausgeben kann.";
   if (machine.status === "no-output") return "Setze ein passendes Foerderband direkt an den Ausgang.";
   if (machine.type === "storageUnit") return "Gruen ist Eingang, Blau ist Ausgang. Das Lager zaehlt extra zum Hauptlager.";
   if (machine.type === "storageDepot") return "Seitlich rein ins Haupt-Inventar, unten raus auf angeschlossene Foerderbaender.";
@@ -911,6 +947,9 @@ function getResourceLabel(resource) {
     wood: "Holz",
     stone: "Stein",
     iron: "Eisen",
+    sand: "Sand",
+    quartz: "Quarz",
+    glass: "Glas",
   }[resource] ?? resource;
 }
 

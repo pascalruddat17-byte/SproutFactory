@@ -8,9 +8,9 @@
     <meta name="apple-mobile-web-app-title" content="Sproutworks" />
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
     <title>Sproutworks</title>
-    <link rel="manifest" href="./manifest.webmanifest" />
-    <link rel="apple-touch-icon" href="./assets/cozy-factory-logo.png" />
-    <link rel="stylesheet" href="./styles.css" />
+    <link rel="manifest" href="./manifest.webmanifest?v=47" />
+    <link rel="apple-touch-icon" href="./assets/cozy-factory-logo.png?v=47" />
+    <link rel="stylesheet" href="./styles.css?v=47" />
   </head>
   <body>
     <main id="app" aria-label="Sproutworks Spielprototyp">
@@ -20,7 +20,7 @@
         <div class="logo-glow"></div>
         <div class="gear-door gear-left" aria-hidden="true"></div>
         <div class="gear-door gear-right" aria-hidden="true"></div>
-        <img class="logo-art" src="./assets/cozy-factory-logo.png" alt="Cozy Factory Logo" />
+        <img class="logo-art" src="./assets/cozy-factory-logo.png?v=47" alt="Cozy Factory Logo" />
       </section>
 
       <div class="hud">
@@ -53,6 +53,7 @@
           <span>Handy</span>
         </label>
         <button id="reloadMapButton" class="reload-map-button" type="button">Neue Map laden · 500 Coin</button>
+        <button id="centerWarehouseButton" class="reload-map-button" type="button">Zum Hauptlager springen</button>
         <button id="resetGameButton" class="reset-game-button" type="button">Fortschritt zuruecksetzen</button>
         <div class="code-section">
           <label for="codeInput">Code eingeben</label>
@@ -121,6 +122,21 @@
             <span class="shop-card-title">Metallfabrik</span>
             <span class="shop-card-desc">2x2-Farm, produziert Eisen in Erznaehe und legt Items aufs Band.</span>
             <span class="shop-card-cost">45 Stein · 25 Eisen · 45 Holz</span>
+          </button>
+          <button id="buildSandCollectorButton" class="build-card" type="button">
+            <span class="shop-card-title">Sandsammler</span>
+            <span class="shop-card-desc">2x2-Farm, muss direkt auf Sand am Seeufer stehen.</span>
+            <span class="shop-card-cost">25 Stein · 10 Eisen · 30 Holz</span>
+          </button>
+          <button id="buildQuartzCollectorButton" class="build-card" type="button">
+            <span class="shop-card-title">Quarzsammler</span>
+            <span class="shop-card-desc">2x2-Farm, produziert Quarz in Kristallnaehe.</span>
+            <span class="shop-card-cost">45 Stein · 20 Eisen · 40 Holz</span>
+          </button>
+          <button id="buildGlassFurnaceButton" class="build-card" type="button">
+            <span class="shop-card-title">Heizofen</span>
+            <span class="shop-card-desc">Schmilzt 2 Sand und 1 Quarz zu Glas und legt es aufs Band.</span>
+            <span class="shop-card-cost">65 Stein · 45 Eisen · 55 Holz</span>
           </button>
         </div>
         <div class="build-category" data-build-category="transport">
@@ -206,6 +222,9 @@
               <option value="wood">Holz</option>
               <option value="stone">Stein</option>
               <option value="iron">Eisen</option>
+              <option value="sand">Sand</option>
+              <option value="quartz">Quarz</option>
+              <option value="glass">Glas</option>
             </select>
           </label>
           <button id="warehouseOutputToggle" class="upgrade-button warehouse-output-toggle" type="button">Ausgabe starten</button>
@@ -230,6 +249,21 @@
             <span class="resource-icon wood-icon" aria-hidden="true"></span>
             <span class="resource-name">Holz</span>
             <strong>180/500</strong>
+          </div>
+          <div class="resource-counter" data-resource="sand">
+            <span class="resource-icon sand-icon" aria-hidden="true"></span>
+            <span class="resource-name">Sand</span>
+            <strong>0/500</strong>
+          </div>
+          <div class="resource-counter" data-resource="quartz">
+            <span class="resource-icon quartz-icon" aria-hidden="true"></span>
+            <span class="resource-name">Quarz</span>
+            <strong>0/500</strong>
+          </div>
+          <div class="resource-counter" data-resource="glass">
+            <span class="resource-icon glass-icon" aria-hidden="true"></span>
+            <span class="resource-name">Glas</span>
+            <strong>0/500</strong>
           </div>
         </div>
         <div class="upgrade-card">
@@ -269,14 +303,14 @@
         <p>Natur, Erzstellen und freie Bauflächen werden vorbereitet ...</p>
       </div>
     </main>
-    <script src="./src/config.js"></script>
-    <script src="./src/state.js"></script>
-    <script src="./src/world.js"></script>
-    <script src="./src/machines.js"></script>
-    <script src="./src/ui.js"></script>
-    <script src="./src/game.js"></script>
+    <script src="./src/config.js?v=47"></script>
+    <script src="./src/state.js?v=47"></script>
+    <script src="./src/world.js?v=47"></script>
+    <script src="./src/machines.js?v=47"></script>
+    <script src="./src/ui.js?v=47"></script>
+    <script src="./src/game.js?v=47"></script>
     <script>
-      if ("serviceWorker" in navigator) {
+      if (location.protocol !== "file:" && "serviceWorker" in navigator) {
         window.addEventListener("load", () => {
           navigator.serviceWorker.register("./service-worker.js").catch((error) => {
             console.warn("Sproutworks Service Worker konnte nicht geladen werden.", error);
